@@ -1,0 +1,33 @@
+.DS_Store
+.env
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.pdf
+
+.claude/
+
+# Folders
+notices/
+output/
+
+# Personal documents — replace the example files with your own, yours won't be committed
+CV/*.tex
+!CV/CV-example.tex
+CL/*.tex
+!CL/coverletter-example.tex
+preferences.md
+
+# Virtual environment
+venv/
+.venv/
+ENV/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/

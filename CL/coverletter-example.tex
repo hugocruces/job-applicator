@@ -1,0 +1,94 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{fontawesome5}
+\usepackage{parskip}
+
+% Color scheme
+\definecolor{primary}{RGB}{0,114,178}
+\definecolor{secondary}{RGB}{51,51,51}
+\definecolor{lightgray}{RGB}{245,245,245}
+
+\hypersetup{colorlinks=true, urlcolor=primary, pdfborder={0 0 0}}
+
+\pagestyle{empty}
+
+\begin{document}
+
+% Header bar
+\begin{tikzpicture}[remember picture,overlay]
+    \fill[primary] (current page.north west) rectangle ([yshift=-3cm]current page.north east);
+\end{tikzpicture}
+
+\vspace*{0.5cm}
+
+\begin{minipage}[t]{0.6\textwidth}
+    \color{secondary}
+    {\fontsize{24}{28}\selectfont\bfseries Jane Smith}\\[0.3cm]
+    {\large Economist}
+\end{minipage}
+\begin{minipage}[t]{0.38\textwidth}
+    \raggedleft
+    \color{secondary}
+    \small
+    \faEnvelope\ jane.smith@example.com\\[0.1cm]
+    \faMapMarker*\ Example Institution\\[0.1cm]
+    City, Country
+\end{minipage}
+
+\vspace{1.5cm}
+
+{\color{secondary}\small\today}
+
+\vspace{0.8cm}
+
+\noindent\colorbox{lightgray}{%
+    \parbox{\dimexpr\textwidth-2\fboxsep}{%
+        \color{primary}\textbf{Application for [POSITION] (Vacancy Ref.)}\\
+        \small\color{secondary}[ORGANISATION]
+    }%
+}
+
+\vspace{0.8cm}
+
+Dear Recruiting Officer,
+
+I am writing to apply for [POSITION] at [ORGANISATION]. As an economist specialising in [your field] at [your institution], I believe my experience in [key competency] makes me a strong candidate for this role.
+
+My work on [main research/project area] has involved [key tasks and outputs]. This experience has given me strong skills in [skill 1], [skill 2], and [skill 3], which are directly relevant to the responsibilities outlined in the vacancy notice.
+
+I hold a PhD in Economics and am proficient in [tools/methods]. I am accustomed to communicating technical findings to [type of audience] and have contributed to [policy reports / peer-reviewed publications / institutional reports].
+
+I would welcome the opportunity to discuss how my background can contribute to your team's work.
+
+\vspace{0.8cm}
+
+Sincerely,
+
+\vspace{0.5cm}
+
+{\color{primary}\textit{Jane Smith}}
+
+\vspace{1cm}
+
+{\small\color{secondary}Feel free to contact the following people for a reference:}
+
+\vspace{0.4cm}
+
+\noindent\begin{minipage}[t]{0.48\textwidth}
+    \colorbox{lightgray}{%
+        \parbox{\dimexpr\textwidth-2\fboxsep}{%
+            \small
+            \textbf{\color{primary}Reference Name}\\
+            Title, Institution\\[0.2cm]
+            \faEnvelope\ \texttt{reference@example.com}
+        }%
+    }
+\end{minipage}
+
+\end{document}
