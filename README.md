@@ -25,12 +25,12 @@ python apply.py --vacancy <path_or_url> --slug <position-slug> [--mode all|repor
 
 ### Modes
 
-| Mode | Stages | Use case |
-|---|---|---|
-| `all` (default) | Ingest → Analysis → Report → Adapt CV → Adapt CL | Full run for a new vacancy |
-| `report` | Ingest → Analysis → Report | Check fit before committing to document adaptation |
-| `adapt` | Adapt CV → Adapt CL | Adapt documents after reviewing the report; reuses saved data |
-| `batch` | Quick-scan → interactive selection → full pipeline on chosen ones | Scan many vacancies at once and pick the best matches |
+| Mode            | Stages                                                            | Use case                                                      |
+| --------------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| `all` (default) | Ingest → Analysis → Report → Adapt CV → Adapt CL                  | Full run for a new vacancy                                    |
+| `report`        | Ingest → Analysis → Report                                        | Check fit before committing to document adaptation            |
+| `adapt`         | Adapt CV → Adapt CL                                               | Adapt documents after reviewing the report; reuses saved data |
+| `batch`         | Quick-scan → interactive selection → full pipeline on chosen ones | Scan many vacancies at once and pick the best matches         |
 
 ### Examples
 
