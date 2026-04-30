@@ -1,39 +1,50 @@
 """Batch scanning: quick-scan multiple vacancies in parallel and extract job URLs."""
 
-import warnings
-warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
-
-import asyncio
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from string import Template
 
-import anthropic
+from stages._client import call_simple, call_with_cache, strip_code_fence
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+
+SCAN_TOOL = {
+    "name": "submit_scan",
+    "description": "Submit a quick fit assessment of the candidate against the vacancy.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "position_title": {"type": "string"},
+            "organisation": {"type": "string"},
+            "fit_score": {"type": "string", "enum": ["Strong", "Moderate", "Weak"]},
+            "reason": {"type": "string"},
+        },
+        "required": ["position_title", "organisation", "fit_score", "reason"],
+    },
+}
 
 
 def quick_scan(vacancy_text: str, cv_text: str) -> dict:
     """Quick Haiku scan of a single vacancy. Returns title, org, fit_score, reason."""
-    prompt_template = (PROMPTS_DIR / "batch_scan.txt").read_text()
-    prompt = prompt_template.format(vacancy_text=vacancy_text, cv_text=cv_text)
+    prompt = Template((PROMPTS_DIR / "batch_scan.txt").read_text()).substitute(
+        vacancy_text=vacancy_text, cv_text=cv_text,
+    )
 
-    client = anthropic.Anthropic()
-    message = client.messages.create(
+    message = call_with_cache(
         model="claude-haiku-4-5-20251001",
         max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
+        prompt=prompt,
+        tools=[SCAN_TOOL],
+        tool_choice={"type": "tool", "name": "submit_scan"},
+        stage_label="Quick Scan",
     )
-    if message.stop_reason == "max_tokens":
-        print(f"\nWARNING: Claude reached the max_tokens limit during quick_scan.")
 
-    text = message.content[0].text
-    if "```json" in text:
-        text = text.split("```json")[1].split("```")[0]
-    elif "```" in text:
-        text = text.split("```")[1].split("```")[0]
-    return json.loads(text.strip())
+    for block in message.content:
+        if block.type == "tool_use" and block.name == "submit_scan":
+            return block.input
+    raise RuntimeError("Quick scan: model did not return a submit_scan tool call.")
 
 
 # Known ATS URL patterns that unambiguously identify individual job listings
@@ -59,19 +70,15 @@ def extract_job_urls(page_url: str) -> list[str]:
     Haiku classification when no ATS links are detected.
     """
     all_links = _fetch_links_playwright(page_url)
-
     if not all_links:
         return []
 
     all_links = list(dict.fromkeys(all_links))  # deduplicate, preserve order
 
-    # Fast path: known ATS URL patterns
     ats_links = [u for u in all_links if _ATS_RE.search(u)]
     if ats_links:
         return ats_links
 
-    # Slow path: ask Claude to classify the links
-    client = anthropic.Anthropic()
     prompt = (
         f"You are given a list of URLs extracted from a careers/jobs page at: {page_url}\n\n"
         "Identify which URLs are individual job listing pages "
@@ -86,22 +93,16 @@ def extract_job_urls(page_url: str) -> list[str]:
         "URLs:\n" + "\n".join(all_links[:300])
     )
 
-    message = client.messages.create(
+    message = call_simple(
         model="claude-haiku-4-5-20251001",
         max_tokens=8192,
-        messages=[{"role": "user", "content": prompt}],
+        prompt=prompt,
+        stage_label="URL Classifier",
     )
-    if message.stop_reason == "max_tokens":
-        print(f"\nWARNING: Claude reached the max_tokens limit during job URL extraction from {page_url}.")
 
-    text = message.content[0].text
-    if "```json" in text:
-        text = text.split("```json")[1].split("```")[0]
-    elif "```" in text:
-        text = text.split("```")[1].split("```")[0]
-
+    text = strip_code_fence(message.content[0].text)
     try:
-        urls = json.loads(text.strip())
+        urls = json.loads(text)
         return [u for u in urls if isinstance(u, str) and u.startswith("http")]
     except json.JSONDecodeError:
         return []
@@ -109,21 +110,8 @@ def extract_job_urls(page_url: str) -> list[str]:
 
 def _fetch_links_playwright(page_url: str) -> list[str]:
     """Render a page with Playwright (handles JS) and return all href values."""
-
-    async def _run() -> list[str]:
-        from playwright.async_api import async_playwright
-
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(page_url, wait_until="networkidle", timeout=30_000)
-            hrefs: list[str] = await page.eval_on_selector_all(
-                "a[href]", "els => els.map(el => el.href)"
-            )
-            await browser.close()
-        return hrefs
-
-    return asyncio.run(_run())
+    from stages._browser import render_page
+    return render_page(page_url, what="links")
 
 
 def scan_all(vacancies: list[tuple[str, str]], cv_text: str, max_workers: int = 5) -> list[dict]:

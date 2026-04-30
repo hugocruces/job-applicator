@@ -1,8 +1,5 @@
 """Stage 1 — Vacancy Ingestion: parse vacancy notice into plain text."""
 
-import warnings
-warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
-
 import os
 
 import pdfplumber
@@ -31,14 +28,37 @@ def _extract_pdf(path: str) -> str:
     return "\n\n".join(pages)
 
 
+# If a requests-based fetch returns less than this much text, the page is
+# probably JS-rendered and we should re-fetch with a headless browser.
+_THIN_TEXT_THRESHOLD = 500
+
+
 def _fetch_url(url: str) -> str:
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
-    # Remove script and style elements
-    for tag in soup(["script", "style", "nav", "footer", "header"]):
-        tag.decompose()
-    text = soup.get_text(separator="\n", strip=True)
+    text = ""
+    try:
+        resp = requests.get(
+            url,
+            timeout=30,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; job-applicator/1.0)"},
+        )
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for tag in soup(["script", "style", "nav", "footer", "header"]):
+            tag.decompose()
+        text = soup.get_text(separator="\n", strip=True)
+    except requests.RequestException:
+        text = ""
+
+    if len(text) < _THIN_TEXT_THRESHOLD:
+        try:
+            from stages._browser import render_page
+            rendered = render_page(url, what="text")
+            if isinstance(rendered, str) and rendered.strip():
+                text = rendered
+        except Exception as e:
+            if not text:
+                raise ValueError(f"Failed to fetch {url} via requests or Playwright: {e}")
+
     if not text.strip():
         raise ValueError(f"No text could be extracted from URL: {url}")
     return text

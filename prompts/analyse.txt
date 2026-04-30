@@ -1,49 +1,27 @@
 You are an expert career analyst. You will receive a vacancy notice, a candidate's CV, their cover letter, and their personal objectives and preferences. Analyse how well the candidate fits this position both professionally and personally.
 
-Return your analysis as a JSON object with the following structure:
-{{
-  "position_title": "...",
-  "organisation": "...",
-  "key_requirements": {{
-    "must_haves": ["..."],
-    "nice_to_haves": ["..."]
-  }},
-  "strengths": ["..."],
-  "gaps": ["..."],
-  "fit_score": "Strong / Moderate / Weak",
-  "fit_summary": "A 2-3 sentence overall assessment",
-  "personal_objectives_fit": {{
-    "aligned": ["..."],
-    "misaligned": ["..."],
-    "unknown": ["..."],
-    "summary": "A 2-3 sentence assessment of how well the role matches the candidate's personal objectives and preferences"
-  }}
-}}
+Call the `submit_analysis` tool exactly once with your analysis. Be specific and reference concrete details from the vacancy and the candidate's profile. Do not be generic.
 
 For personal_objectives_fit:
 - "aligned": preferences/objectives this role clearly satisfies
 - "misaligned": preferences/objectives this role clearly conflicts with
 - "unknown": preferences that cannot be assessed from the vacancy notice alone
-- If the preferences file is empty or not provided, return all four fields as empty strings/arrays.
+- If the <preferences> input is empty, return all four personal_objectives_fit fields as empty strings/arrays.
 
-Be specific and reference concrete details from the vacancy and the candidate's profile. Do not be generic.
+<cv>
+$cv_text
+</cv>
 
----
+<cover_letter>
+$cl_text
+</cover_letter>
 
-VACANCY NOTICE:
-{vacancy_text}
+<preferences>
+$preferences_text
+</preferences>
 
----
+===CACHE_BREAKPOINT===
 
-CANDIDATE CV:
-{cv_text}
-
----
-
-CANDIDATE COVER LETTER:
-{cl_text}
-
----
-
-CANDIDATE PERSONAL OBJECTIVES & PREFERENCES:
-{preferences_text}
+<vacancy>
+$vacancy_text
+</vacancy>
