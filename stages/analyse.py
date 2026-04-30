@@ -24,9 +24,12 @@ def analyse(vacancy_text: str, cv_text: str, cl_text: str) -> dict:
     client = anthropic.Anthropic()
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=4096,
+        max_tokens=8192,
         messages=[{"role": "user", "content": prompt}],
     )
+
+    if message.stop_reason == "max_tokens":
+        print("\nWARNING: Claude reached the max_tokens limit (Gap Analysis). The analysis might be incomplete.")
 
     response_text = message.content[0].text
 

@@ -22,9 +22,12 @@ def quick_scan(vacancy_text: str, cv_text: str) -> dict:
     client = anthropic.Anthropic()
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=512,
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )
+    if message.stop_reason == "max_tokens":
+        print(f"\nWARNING: Claude reached the max_tokens limit during quick_scan.")
+
     text = message.content[0].text
     if "```json" in text:
         text = text.split("```json")[1].split("```")[0]
@@ -85,9 +88,12 @@ def extract_job_urls(page_url: str) -> list[str]:
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=4096,
+        max_tokens=8192,
         messages=[{"role": "user", "content": prompt}],
     )
+    if message.stop_reason == "max_tokens":
+        print(f"\nWARNING: Claude reached the max_tokens limit during job URL extraction from {page_url}.")
+
     text = message.content[0].text
     if "```json" in text:
         text = text.split("```json")[1].split("```")[0]

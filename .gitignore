@@ -9,16 +9,15 @@
 *.pdf
 
 .claude/
+.vscode/
 
 # Folders
-notices/
-output/
+notices/*
+output/*
 
-# Personal documents — replace the example files with your own, yours won't be committed
-CV/*.tex
-!CV/CV-example.tex
-CL/*.tex
-!CL/coverletter-example.tex
+# Personal documents
+CV/*
+CL/*
 preferences.md
 
 # Virtual environment

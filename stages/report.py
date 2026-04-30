@@ -24,8 +24,11 @@ def generate_report(
     client = anthropic.Anthropic()
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=8192,
+        max_tokens=16384,
         messages=[{"role": "user", "content": prompt}],
     )
+
+    if message.stop_reason == "max_tokens":
+        print("\nWARNING: Claude reached the max_tokens limit (Report Generation). The report might be incomplete.")
 
     return message.content[0].text

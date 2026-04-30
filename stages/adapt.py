@@ -34,9 +34,12 @@ def _call_claude(prompt: str) -> str:
     client = anthropic.Anthropic()
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=8192,
+        max_tokens=16384,
         messages=[{"role": "user", "content": prompt}],
     )
+    if message.stop_reason == "max_tokens":
+        print("\nWARNING: Claude reached the max_tokens limit (Document Adaptation). The generated LaTeX might be truncated or invalid.")
+
     text = message.content[0].text
 
     # Extract LaTeX from markdown code blocks if present
