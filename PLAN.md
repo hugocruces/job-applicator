@@ -8,7 +8,7 @@ Continuation plan for future agent sessions. Tasks already shipped are listed in
 - Project: small Python CLI (`apply.py`) that ingests a vacancy (PDF or URL),
   runs gap analysis with Anthropic Claude, generates an interview-prep report,
   and adapts CV/cover letter LaTeX files. Stage modules in `stages/`.
-- Tests: `python -m unittest discover -s tests` (38 tests, all green).
+- Tests: `python -m unittest discover -s tests` (40 tests, all green).
 - Lint: `ruff check .` (clean). Config in `pyproject.toml`.
 - Deps pinned in `requirements.txt`. Bootstrap via `bash setup.sh`.
 - Run `source .venv/bin/activate` before any python/ruff commands.
@@ -16,21 +16,6 @@ Continuation plan for future agent sessions. Tasks already shipped are listed in
 - All non-trivial work: write a short plan, confirm with the user before coding.
 
 ## Open items (ordered by impact)
-
-### 1. Structured logging  *(medium effort, high value)*
-`print()` is currently used for: status updates, token usage, warnings, errors.
-Mixing UI text with diagnostics blocks `--quiet` and machine parsing.
-
-- Add `stages/log.py` exposing a `logger` (stdlib `logging`).
-- Status lines for the user → keep as `print()` (UX) OR route through a
-  dedicated `ui.info()` that respects `--quiet`.
-- Diagnostics (token counts in `_client._log_usage`, fallback notices in
-  `ingest._fetch_url`, scan failures in `batch.scan_all`) → `logger.info` /
-  `logger.warning`.
-- CLI flags: `--quiet` (errors only) and `--verbose` (DEBUG).
-- Touch points: `stages/_client.py:_log_usage`, `stages/ingest.py:_fetch_url`,
-  `stages/batch.py:scan_one`, all `print()` calls in `stages/orchestrate.py`
-  and `apply.py`.
 
 ### 3. Stage dataclass collapse  *(architectural — only if more stages coming)*
 `analyse.py`, `report.py`, `adapt.py`, `batch.py` all do the same dance:
@@ -40,16 +25,27 @@ render template → call Claude → parse → write file.
 - Pipeline becomes a `list[Stage]` driven by one `run_stage()` function.
 - Skip if no new stages are planned. Refactor for refactor's sake = bad.
 
-### 5. Future infrastructure
-- `mypy` config (basic, not strict). Add `[tool.mypy]` to pyproject.
-- GitHub Actions: run `ruff check` + `python -m unittest` on push.
-- Integration test using a saved fixture vacancy text + mocked client end-to-end
-  through `orchestrate.process_vacancy`.
-
 ## Completed (do NOT redo)
 
 Reference commits: `git log --oneline` for the exact history.
 
+- Structured logging: `stages/log.py` exposes `configure(quiet, verbose)` +
+  `get_logger(name)`. Root logger `apply` writes to stderr with bare
+  `%(message)s`. `apply.py` calls `configure_logging` after parsing args.
+  CLI flags `--quiet` (WARNING) and `--verbose` (DEBUG); default INFO.
+  Converted: `_client._log_usage` (DEBUG), `_client.call_with_cache`
+  max_tokens warning (WARNING), `ingest._fetch_url` fallback (INFO),
+  `orchestrate.*` prints (INFO/WARNING), `display.py` banners (INFO),
+  `apply.py` prints (INFO), Playwright availability notes (WARNING).
+- Infra:
+  - `pyproject.toml` adds `[tool.mypy]` block (py3.10, `ignore_missing_imports`,
+    `check_untyped_defs`, `warn_unused_ignores`, `warn_redundant_casts`).
+    `mypy>=1.10` lives in `[project.optional-dependencies].dev`.
+  - `.github/workflows/ci.yml`: ruff + unittest on push to main and on PRs,
+    matrix over Python 3.10/3.11/3.12.
+  - `tests/test_orchestrate.py`: integration test for
+    `orchestrate.process_vacancy` (mocked client, tmp ROOT, verifies report
+    + adapted CV/CL artefacts written and verify stage runs).
 - `apply.py:check_playwright_available` memoised via module-global cache
   (`_playwright_available_cache`) — skips ~1s sync_playwright probe on
   repeat calls within a process.

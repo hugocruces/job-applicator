@@ -6,6 +6,10 @@ import pdfplumber
 import requests
 from bs4 import BeautifulSoup
 
+from stages.log import get_logger
+
+log = get_logger(__name__)
+
 
 def ingest(source: str) -> str:
     """Return plain text from a PDF path or URL."""
@@ -52,7 +56,7 @@ def _fetch_url(url: str) -> str:
 
     if len(text) < _THIN_TEXT_THRESHOLD:
         if http_error is None:
-            print(f"  Page returned only {len(text)} chars; retrying with Playwright...")
+            log.info("  Page returned only %d chars; retrying with Playwright...", len(text))
         try:
             from stages._browser import render_page
             rendered = render_page(url, what="text")

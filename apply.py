@@ -14,7 +14,11 @@ from dotenv import load_dotenv
 from stages._client import estimate_tokens, render_prompt
 from stages.analyse import analyse
 from stages.ingest import ingest
+from stages.log import configure as configure_logging
+from stages.log import get_logger
 from stages.orchestrate import process_vacancy, run_batch
+
+log = get_logger(__name__)
 
 ROOT = Path(__file__).resolve().parent
 
@@ -64,9 +68,10 @@ def check_playwright_available() -> bool:
     try:
         import playwright  # noqa: F401
     except ImportError:
-        print(
+        log.warning(
             "NOTE: Playwright not installed. URL ingestion will fall back to plain HTTP only,\n"
-            "      and batch mode --vacancies <url> will not work. Run: pip install playwright && playwright install chromium"
+            "      and batch mode --vacancies <url> will not work. "
+            "Run: pip install playwright && playwright install chromium"
         )
         _playwright_available_cache = False
         return False
@@ -75,7 +80,8 @@ def check_playwright_available() -> bool:
         with sync_playwright() as p:
             _ = p.chromium.executable_path
     except Exception as e:
-        print(f"NOTE: Playwright is installed but Chromium is not ready ({e}). Run: playwright install chromium")
+        log.warning("NOTE: Playwright is installed but Chromium is not ready (%s). "
+                    "Run: playwright install chromium", e)
         _playwright_available_cache = False
         return False
     _playwright_available_cache = True
@@ -108,6 +114,10 @@ modes:
                         help="Estimate prompt sizes and exit without calling the API")
     parser.add_argument("--verify", action="store_true",
                         help="Run a post-adaptation sanity check (Haiku) to flag fabricated phrases")
+    parser.add_argument("--quiet", action="store_true",
+                        help="Suppress progress output; only show warnings and errors")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Show debug-level diagnostics (token usage, etc.)")
     return parser
 
 
@@ -171,17 +181,18 @@ def _dry_run_report(slug: str, vacancy_text: str, cv_tex: str, cl_tex: str, mode
                           analysis_json=_DRY_RUN_ANALYSIS_STUB)
         estimates.append(("Adapt CL (Sonnet)", estimate_tokens(p)))
 
-    print(f"\nDry run for slug={slug!r} mode={mode!r}:")
+    log.info("\nDry run for slug=%r mode=%r:", slug, mode)
     for label, n in estimates:
-        print(f"  {label:30s} ≈ {n:>6} input tokens")
-    print(f"  {'TOTAL input (no caching)':30s} ≈ {sum(n for _, n in estimates):>6} tokens")
-    print("  (note: with prompt caching, repeated CV/CL/preferences are billed at ~10%)")
+        log.info("  %-30s ≈ %6d input tokens", label, n)
+    log.info("  %-30s ≈ %6d tokens", "TOTAL input (no caching)", sum(n for _, n in estimates))
+    log.info("  (note: with prompt caching, repeated CV/CL/preferences are billed at ~10%%)")
 
 
 def main():
     load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
+    configure_logging(quiet=args.quiet, verbose=args.verbose)
 
     cv_path = find_tex(ROOT / "CV", "CV", override=args.cv_file)
     cl_path = find_tex(ROOT / "CL", "cover letter", override=args.cl_file)
@@ -217,9 +228,9 @@ def main():
         if not args.vacancy:
             parser.error("--vacancy is required for 'all' and 'report' modes")
 
-        print("Stage 1: Ingesting vacancy notice...")
+        log.info("Stage 1: Ingesting vacancy notice...")
         vacancy_text = ingest(args.vacancy)
-        print(f"  Extracted {len(vacancy_text)} characters.")
+        log.info("  Extracted %d characters.", len(vacancy_text))
 
         if args.dry_run:
             _dry_run_report(args.slug, vacancy_text, cv_tex, cl_tex, args.mode)
@@ -227,11 +238,11 @@ def main():
 
         vacancy_path.write_text(vacancy_text)
 
-        print("Stage 2: Running gap analysis...")
+        log.info("Stage 2: Running gap analysis...")
         analysis = analyse(vacancy_text, cv_tex, cl_tex)
         analysis_path.write_text(json.dumps(analysis, indent=2, ensure_ascii=False))
-        print(f"  Fit score: {analysis.get('fit_score', 'N/A')}")
-        print(f"  Analysis saved to {analysis_path}")
+        log.info("  Fit score: %s", analysis.get("fit_score", "N/A"))
+        log.info("  Analysis saved to %s", analysis_path)
 
     elif args.mode == "adapt":
         if not vacancy_path.exists() or not analysis_path.exists():
@@ -254,7 +265,7 @@ def main():
         verify=args.verify,
     )
 
-    print(f"\nDone! Outputs in {output_dir}/")
+    log.info("\nDone! Outputs in %s/", output_dir)
 
 
 if __name__ == "__main__":

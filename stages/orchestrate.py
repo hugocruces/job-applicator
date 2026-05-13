@@ -9,7 +9,10 @@ from stages.analyse import analyse
 from stages.batch import extract_job_urls, make_slug, parse_selection, scan_all
 from stages.display import print_scan_results, print_vacancy_header
 from stages.ingest import ingest
+from stages.log import get_logger
 from stages.report import generate_report
+
+log = get_logger(__name__)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -31,36 +34,36 @@ def process_vacancy(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if do_report:
-        print("Stage 3: Generating interview preparation report...")
+        log.info("Stage 3: Generating interview preparation report...")
         report = generate_report(vacancy_text, analysis, cv_tex)
         report_path = output_dir / f"report-{slug}.md"
         report_path.write_text(report)
-        print(f"  Saved to {report_path}")
+        log.info("  Saved to %s", report_path)
 
     if do_adapt:
-        print("Stage 4: Adapting CV...")
+        log.info("Stage 4: Adapting CV...")
         adapted_cv = adapt_cv(vacancy_text, analysis, cv_tex)
         cv_out = output_dir / f"{cv_stem}-{slug}.tex"
         cv_out.write_text(adapted_cv)
-        print(f"  Saved to {cv_out}")
+        log.info("  Saved to %s", cv_out)
 
-        print("Stage 5: Adapting cover letter...")
+        log.info("Stage 5: Adapting cover letter...")
         adapted_cl = adapt_cl(vacancy_text, analysis, cl_tex)
         cl_out = output_dir / f"{cl_stem}-{slug}.tex"
         cl_out.write_text(adapted_cl)
-        print(f"  Saved to {cl_out}")
+        log.info("  Saved to %s", cl_out)
 
         if verify:
             from stages.verify import find_fabrications
-            print("Stage 6: Verifying adapted documents for fabricated phrases...")
+            log.info("Stage 6: Verifying adapted documents for fabricated phrases...")
             for kind, original, adapted in [("CV", cv_tex, adapted_cv), ("CL", cl_tex, adapted_cl)]:
                 bad = find_fabrications(original, adapted, label=f"Verify {kind}")
                 if bad:
-                    print(f"  ⚠ {kind}: {len(bad)} potentially fabricated phrase(s):")
+                    log.warning("  ⚠ %s: %d potentially fabricated phrase(s):", kind, len(bad))
                     for s in bad:
-                        print(f"      - {s}")
+                        log.warning("      - %s", s)
                 else:
-                    print(f"  ✓ {kind}: no fabrications detected")
+                    log.info("  ✓ %s: no fabrications detected", kind)
 
 
 def collect_batch_sources(items: list[str]) -> list[tuple[str, str]]:
@@ -68,28 +71,28 @@ def collect_batch_sources(items: list[str]) -> list[tuple[str, str]]:
     sources: list[tuple[str, str]] = []
     for item in items:
         if item.startswith(("http://", "https://")):
-            print(f"  Extracting job listings from {item}...")
+            log.info("  Extracting job listings from %s...", item)
             try:
                 job_urls = extract_job_urls(item)
             except Exception as e:
-                print(f"  Failed to fetch page: {e}")
+                log.warning("  Failed to fetch page: %s", e)
                 continue
 
             if not job_urls:
-                print("  No individual job listings found on that page.")
+                log.info("  No individual job listings found on that page.")
                 continue
 
-            print(f"  Found {len(job_urls)} listings. Fetching...")
+            log.info("  Found %d listings. Fetching...", len(job_urls))
             for url in job_urls:
                 try:
                     sources.append((url, ingest(url)))
                 except Exception as e:
-                    print(f"  Skipping {url}: {e}")
+                    log.warning("  Skipping %s: %s", url, e)
         else:
             try:
                 sources.append((item, ingest(item)))
             except Exception as e:
-                print(f"  Skipping {item}: {e}")
+                log.warning("  Skipping %s: %s", item, e)
     return sources
 
 
@@ -105,20 +108,20 @@ def run_batch(
     """Full batch flow: collect → scan → user-select → process."""
     from stages._client import estimate_tokens
 
-    print("Collecting vacancies...")
+    log.info("Collecting vacancies...")
     sources = collect_batch_sources(items)
 
     if not sources:
-        print("No vacancies to scan. Exiting.")
+        log.warning("No vacancies to scan. Exiting.")
         sys.exit(0)
 
     if dry_run:
         total = sum(estimate_tokens(t) for _, t in sources)
-        print(f"\nDry run: would quick-scan {len(sources)} vacancies "
-              f"(≈ {total} input tokens, plus CV/CV reuse cached).")
+        log.info("\nDry run: would quick-scan %d vacancies "
+                 "(≈ %d input tokens, plus CV/CV reuse cached).", len(sources), total)
         return
 
-    print(f"\nScanning {len(sources)} vacancies (in parallel)...")
+    log.info("\nScanning %d vacancies (in parallel)...", len(sources))
     results = scan_all(sources, cv_tex)
 
     score_order = {"Strong": 0, "Moderate": 1, "Weak": 2, "Error": 3}
@@ -130,12 +133,12 @@ def run_batch(
         "\nSelect vacancies to process (e.g. 1,3 or 2-4 or all), or Enter to exit: "
     ).strip()
     if not selection_raw:
-        print("Nothing selected. Exiting.")
+        log.info("Nothing selected. Exiting.")
         sys.exit(0)
 
     selected = parse_selection(selection_raw, len(results))
     if not selected:
-        print("No valid selection. Exiting.")
+        log.warning("No valid selection. Exiting.")
         sys.exit(0)
 
     mode_raw = input(
@@ -156,11 +159,11 @@ def run_batch(
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / f"vacancy-{slug}.txt").write_text(vacancy_text)
 
-        print("Stage 2: Running gap analysis...")
+        log.info("Stage 2: Running gap analysis...")
         analysis = analyse(vacancy_text, cv_tex, cl_tex)
         analysis_path = output_dir / f"analysis-{slug}.json"
         analysis_path.write_text(json.dumps(analysis, indent=2, ensure_ascii=False))
-        print(f"  Fit score: {analysis.get('fit_score', 'N/A')}")
+        log.info("  Fit score: %s", analysis.get("fit_score", "N/A"))
 
         process_vacancy(
             slug, vacancy_text, analysis, cv_tex, cl_tex, cv_stem, cl_stem,
@@ -168,6 +171,6 @@ def run_batch(
             do_adapt=(run_mode == "all"),
             verify=verify,
         )
-        print(f"\n  Done → {output_dir}/")
+        log.info("\n  Done → %s/", output_dir)
 
-    print("\nAll selected vacancies processed.")
+    log.info("\nAll selected vacancies processed.")

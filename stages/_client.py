@@ -7,6 +7,10 @@ from string import Template
 
 import anthropic
 
+from stages.log import get_logger
+
+log = get_logger(__name__)
+
 CACHE_MARKER = "===CACHE_BREAKPOINT==="
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
@@ -34,7 +38,7 @@ def split_at_breakpoint(prompt: str) -> tuple[str, str]:
 
 
 def _log_usage(message, stage_label: str) -> None:
-    """Print token usage and cache hit info for a single call."""
+    """Log token usage and cache hit info for a single call (DEBUG)."""
     u = getattr(message, "usage", None)
     if u is None:
         return
@@ -45,7 +49,7 @@ def _log_usage(message, stage_label: str) -> None:
         parts.append(f"cache_write={cw}")
     if cr:
         parts.append(f"cache_read={cr}")
-    print(f"  [{stage_label}] tokens: " + " ".join(parts))
+    log.debug("  [%s] tokens: %s", stage_label, " ".join(parts))
 
 
 def call_with_cache(
@@ -81,7 +85,7 @@ def call_with_cache(
     message = _client().messages.create(**kwargs)
 
     if message.stop_reason == "max_tokens":
-        print(f"\nWARNING: Claude reached the max_tokens limit ({stage_label}). Output may be truncated.")
+        log.warning("Claude reached the max_tokens limit (%s). Output may be truncated.", stage_label)
     _log_usage(message, stage_label)
     return message
 
@@ -94,7 +98,7 @@ def call_simple(*, model: str, max_tokens: int, prompt: str, stage_label: str):
         messages=[{"role": "user", "content": prompt}],
     )
     if message.stop_reason == "max_tokens":
-        print(f"\nWARNING: Claude reached the max_tokens limit ({stage_label}). Output may be truncated.")
+        log.warning("Claude reached the max_tokens limit (%s). Output may be truncated.", stage_label)
     _log_usage(message, stage_label)
     return message
 
