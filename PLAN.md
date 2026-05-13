@@ -17,13 +17,60 @@ Continuation plan for future agent sessions. Tasks already shipped are listed in
 
 ## Open items (ordered by impact)
 
-### 3. Stage dataclass collapse  *(architectural — only if more stages coming)*
-`analyse.py`, `report.py`, `adapt.py`, `batch.py` all do the same dance:
-render template → call Claude → parse → write file.
-- Define `@dataclass class Stage` with `name`, `prompt_template`, `model`,
-  `max_tokens`, `tools`, `parser`, `output_filename` fields.
-- Pipeline becomes a `list[Stage]` driven by one `run_stage()` function.
-- Skip if no new stages are planned. Refactor for refactor's sake = bad.
+### 1. Concatenate all text blocks in adapt/report  *(correctness)*
+`stages/adapt.py:_call_and_extract` picks `text_blocks[0].text`; `stages/report.py:generate_report`
+picks `message.content[0].text`. If Sonnet returns >1 text block (refusal preamble + answer,
+or future thinking-summary blocks), tail content is silently dropped.
+- Fix: `"".join(b.text for b in message.content if getattr(b, "type", None) == "text")`,
+  then `strip_code_fence`.
+- Tiny but bug-class fix; protects against silent truncation.
+
+### 2. Reuse one Chromium for batch URL/page rendering  *(perf in batch mode)*
+`stages/_browser.py:render_page` does `asyncio.run` + fresh `chromium.launch` per call.
+In batch with an ATS landing page → N job URLs that all need ingest, that's N+1 cold
+launches at ~2s each.
+- Refactor to a `BrowserSession` context manager that launches once and exposes
+  `render(url, what=...)`. Call sites: `stages/batch.extract_job_urls`,
+  `stages/ingest._fetch_url`, `stages/orchestrate.collect_batch_sources`.
+- Single-vacancy flow can keep the one-shot helper as a thin wrapper.
+
+### 3. `parse_selection` should warn on unparseable tokens
+`stages/batch.parse_selection` silently drops `"foo"` in `"1, foo, 3"` — user gets
+`[0, 2]` and no signal that they mistyped.
+- Log a single `WARNING` listing all skipped tokens.
+- Adjust `tests/test_helpers.py` selection edge-case tests to assert the warning.
+
+### 4. Centralise `preferences.md` read
+Read in two places: `apply.py:_dry_run_report` and `stages/analyse.analyse`. Easy to drift.
+- Read once at the top of `apply.main`, pass into `analyse()` and `_dry_run_report()`.
+- Drop `PREFERENCES_PATH` constant from `analyse.py`.
+
+### 5. Decide on mypy: wire it into CI or drop the config
+`pyproject.toml` has a `[tool.mypy]` block and `mypy>=1.10` in dev extras, but
+`.github/workflows/ci.yml` doesn't run it. Either:
+- (a) Add a `mypy stages apply.py` step to CI (matrix or single Python version);
+- (b) Remove `[tool.mypy]` and the dev dep until it's actually used.
+Pick whichever matches whether you want type-checking enforced. Don't leave both half-done.
+
+### 6. Switch Playwright wait condition from `networkidle` to `domcontentloaded`
+`stages/_browser.py` uses `wait_until="networkidle"`. Real-world careers pages
+(analytics beacons, chat widgets) often never reach idle and burn the full 30s
+timeout before falling back.
+- Use `wait_until="domcontentloaded"` + `await page.wait_for_timeout(1500)` to
+  let JS-rendered content paint.
+- Optional: a single `await page.wait_for_selector("a[href]", timeout=5000)` for
+  the `what="links"` path.
+
+### 7. Test for `extract_job_urls` Haiku-classifier fallback
+Current tests cover ATS regex matches. The `call_simple` fallback path (when no
+ATS links found) is uncovered. Mock `call_simple` to return a JSON URL list and
+assert parsing + the `startswith("http")` filter.
+
+### 8. Optional batch cost ceiling
+Currently `run_batch` will gleefully run Sonnet adapt on every selection if user
+types `all`. Add a soft warning when estimated batch input tokens exceed a
+threshold (e.g. 500k), or a `--max-cost` arg that aborts before stage 3 if the
+estimate is above it. Skip if you trust yourself with `Ctrl-C`.
 
 ## Completed (do NOT redo)
 
