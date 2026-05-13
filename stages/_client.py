@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from string import Template
+
 import anthropic
 
 CACHE_MARKER = "===CACHE_BREAKPOINT==="
+
+PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+
+
+def render_prompt(name: str, **vars: str) -> str:
+    """Render a prompt template from prompts/<name> with the given substitutions."""
+    return Template((PROMPTS_DIR / name).read_text()).substitute(**vars)
 
 # anthropic SDK's built-in retry handles 429/408/500/502/503/504/529 and network errors
 # with exponential backoff. We just bump the count from the default of 2.
@@ -109,6 +119,23 @@ def strip_code_fence(text: str, languages: tuple[str, ...] = ("latex", "tex", "j
     return text
 
 
-def estimate_tokens(text: str) -> int:
-    """Rough token-count estimate: ~4 chars/token. Used by --dry-run."""
+_DEFAULT_COUNT_MODEL = "claude-haiku-4-5-20251001"
+
+
+def estimate_tokens(text: str, model: str = _DEFAULT_COUNT_MODEL) -> int:
+    """
+    Token count for `text`. Tries Anthropic's `count_tokens` endpoint (accurate, free,
+    does not count toward usage). Falls back to a chars/4 heuristic on error.
+    """
+    try:
+        result = _client().messages.count_tokens(
+            model=model,
+            messages=[{"role": "user", "content": text}],
+        )
+        return int(getattr(result, "input_tokens", 0)) or _heuristic_tokens(text)
+    except Exception:
+        return _heuristic_tokens(text)
+
+
+def _heuristic_tokens(text: str) -> int:
     return max(1, len(text) // 4)

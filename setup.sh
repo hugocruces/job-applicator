@@ -13,6 +13,11 @@ echo "Installing dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
+if [ "${1:-}" = "--dev" ]; then
+    echo "Installing dev tools (ruff)..."
+    pip install -e ".[dev]"
+fi
+
 echo "Installing Playwright browser (Chromium)..."
 playwright install chromium
 

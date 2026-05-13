@@ -35,6 +35,7 @@ _THIN_TEXT_THRESHOLD = 500
 
 def _fetch_url(url: str) -> str:
     text = ""
+    http_error: Exception | None = None
     try:
         resp = requests.get(
             url,
@@ -46,10 +47,12 @@ def _fetch_url(url: str) -> str:
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
         text = soup.get_text(separator="\n", strip=True)
-    except requests.RequestException:
-        text = ""
+    except requests.RequestException as e:
+        http_error = e
 
     if len(text) < _THIN_TEXT_THRESHOLD:
+        if http_error is None:
+            print(f"  Page returned only {len(text)} chars; retrying with Playwright...")
         try:
             from stages._browser import render_page
             rendered = render_page(url, what="text")
@@ -57,7 +60,9 @@ def _fetch_url(url: str) -> str:
                 text = rendered
         except Exception as e:
             if not text:
-                raise ValueError(f"Failed to fetch {url} via requests or Playwright: {e}")
+                raise ValueError(
+                    f"Failed to fetch {url}. HTTP error: {http_error}. Playwright error: {e}"
+                ) from e
 
     if not text.strip():
         raise ValueError(f"No text could be extracted from URL: {url}")

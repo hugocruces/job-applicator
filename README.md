@@ -7,6 +7,7 @@ A Python CLI tool that analyzes job vacancies against your CV and cover letter, 
 ```bash
 bash setup.sh
 source .venv/bin/activate
+playwright install chromium   # required for batch mode and JS-rendered URLs
 ```
 
 This creates an isolated virtual environment (in `.venv/`) and installs all dependencies, including `python-dotenv` which auto-loads your `.env` file at runtime.
@@ -61,8 +62,8 @@ All outputs are written to `output/<slug>/`:
 - `vacancy-<slug>.txt` — Raw extracted vacancy text (saved for reuse)
 - `analysis-<slug>.json` — Gap analysis (structured JSON)
 - `report-<slug>.md` — Interview preparation report (Markdown)
-- `CV-hugocruces-<slug>.tex` — Adapted CV (LaTeX)
-- `coverletter-hugocruces-<slug>.tex` — Adapted cover letter (LaTeX)
+- `<cv-stem>-<slug>.tex` — Adapted CV (LaTeX). `<cv-stem>` matches your source CV's filename.
+- `<cl-stem>-<slug>.tex` — Adapted cover letter (LaTeX). `<cl-stem>` matches your source CL's filename.
 
 ## How It Works
 
@@ -111,6 +112,9 @@ Reorders/reframes bullet points, highlights relevant experience, and updates the
 
 ### Stage 5: Cover Letter Adaptation
 Updates position reference and employer name, rewrites body paragraphs to emphasise fit. Output is valid LaTeX.
+
+### Stage 6 (optional, `--verify`): Fabrication Check
+Re-reads the adapted CV/CL alongside the original and flags any phrases describing experience, employers, or quantitative achievements not supported by the original.
 
 ## Personalisation
 

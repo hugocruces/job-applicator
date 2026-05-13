@@ -1,0 +1,35 @@
+[project]
+name = "job-applicator"
+version = "0.1.0"
+description = "CLI that tailors CV/cover letter and produces an interview prep report for a vacancy."
+requires-python = ">=3.10"
+readme = "README.md"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "B008",  # function calls in defaults (we don't do this)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B"]
+# warnings.filterwarnings must run before urllib3 import to suppress its load-time warning.
+"apply.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"

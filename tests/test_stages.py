@@ -142,13 +142,23 @@ class TestVerify(unittest.TestCase):
         with ctx:
             self.assertEqual(find_fabrications("o", "a"), [])
 
-    def test_invalid_json_returns_empty(self):
+    def test_invalid_json_raises(self):
         from stages.verify import find_fabrications
 
         msg = _mk_message([_text_block("nonsense")])
         ctx, _ = _patch_client([msg])
         with ctx:
-            self.assertEqual(find_fabrications("o", "a"), [])
+            with self.assertRaises(RuntimeError):
+                find_fabrications("o", "a")
+
+    def test_strips_latex_before_check(self):
+        from stages.verify import _strip_latex
+
+        out = _strip_latex(r"\textbf{Led} a team of \emph{five}. % comment")
+        self.assertNotIn("\\", out)
+        self.assertNotIn("{", out)
+        self.assertIn("Led", out)
+        self.assertIn("five", out)
 
 
 if __name__ == "__main__":

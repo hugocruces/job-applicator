@@ -1,14 +1,16 @@
 """Tests for pure helpers (no API calls)."""
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from stages._client import (
     CACHE_MARKER,
-    estimate_tokens,
+    _heuristic_tokens,
     split_at_breakpoint,
     strip_code_fence,
 )
-from stages.batch import make_slug, parse_selection
+from stages.batch import _ATS_RE, make_slug, parse_selection
 
 
 class TestSplitAtBreakpoint(unittest.TestCase):
@@ -43,11 +45,11 @@ class TestStripCodeFence(unittest.TestCase):
         self.assertEqual(strip_code_fence("a ```b``` c"), "a ```b``` c")
 
 
-class TestEstimateTokens(unittest.TestCase):
+class TestHeuristicTokens(unittest.TestCase):
     def test_rough_estimate(self):
-        self.assertEqual(estimate_tokens(""), 1)
-        self.assertEqual(estimate_tokens("abcd"), 1)
-        self.assertEqual(estimate_tokens("a" * 400), 100)
+        self.assertEqual(_heuristic_tokens(""), 1)
+        self.assertEqual(_heuristic_tokens("abcd"), 1)
+        self.assertEqual(_heuristic_tokens("a" * 400), 100)
 
 
 class TestSlug(unittest.TestCase):
@@ -77,6 +79,84 @@ class TestParseSelection(unittest.TestCase):
 
     def test_garbage_dropped(self):
         self.assertEqual(parse_selection("1,foo", 3), [0])
+
+    def test_empty_string(self):
+        self.assertEqual(parse_selection("", 3), [])
+
+    def test_whitespace_only(self):
+        self.assertEqual(parse_selection("   ", 3), [])
+
+    def test_dedup(self):
+        self.assertEqual(parse_selection("1,1,2", 3), [0, 1])
+
+    def test_reversed_range(self):
+        # "3-1" yields no valid range (range stops immediately).
+        self.assertEqual(parse_selection("3-1", 5), [])
+
+
+class TestAtsRegex(unittest.TestCase):
+    MATCHES = [
+        "https://boards.greenhouse.io/acme/jobs/12345",
+        "https://jobs.lever.co/acme/12345678-1234-1234-1234-123456789012",
+        "https://acme.myworkdayjobs.com/External/job/SF/Engineer_R12",
+        "https://chipotle.taleo.net/careersection/requisition/job.ftl?job=R1",
+        "https://jobs.smartrecruiters.com/Acme/job/SF-Engineer",
+        "https://jobs.ashbyhq.com/acme/abc123",
+        "https://acme.breezy.hr/p/abc/position/engineer",
+        "https://apply.workable.com/acme/j/AB12CD",
+    ]
+    NON_MATCHES = [
+        "https://example.com/about",
+        "https://jobs.lever.co/acme/notahex-but-dashes-here",
+        "https://acme.com/careers",
+        "https://www.linkedin.com/jobs/view/12345",
+    ]
+
+    def test_matches(self):
+        for url in self.MATCHES:
+            with self.subTest(url=url):
+                self.assertTrue(_ATS_RE.search(url), f"should match: {url}")
+
+    def test_non_matches(self):
+        for url in self.NON_MATCHES:
+            with self.subTest(url=url):
+                self.assertFalse(_ATS_RE.search(url), f"should NOT match: {url}")
+
+
+class TestFindTex(unittest.TestCase):
+    def setUp(self):
+        from apply import find_tex
+        self.find_tex = find_tex
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_skips_helpers(self):
+        (self.dir / "main.tex").write_text("x")
+        (self.dir / "main-old.tex").write_text("x")
+        (self.dir / "scratch-draft.tex").write_text("x")
+        self.assertEqual(self.find_tex(self.dir, "CV").name, "main.tex")
+
+    def test_no_files_raises(self):
+        with self.assertRaises(FileNotFoundError):
+            self.find_tex(self.dir, "CV")
+
+    def test_multiple_canonical_raises(self):
+        (self.dir / "a.tex").write_text("x")
+        (self.dir / "b.tex").write_text("x")
+        with self.assertRaises(ValueError):
+            self.find_tex(self.dir, "CV")
+
+    def test_override_absolute(self):
+        f = self.dir / "x.tex"
+        f.write_text("y")
+        self.assertEqual(self.find_tex(self.dir, "CV", override=str(f)), f)
+
+    def test_override_missing_raises(self):
+        with self.assertRaises(FileNotFoundError):
+            self.find_tex(self.dir, "CV", override="missing.tex")
 
 
 if __name__ == "__main__":

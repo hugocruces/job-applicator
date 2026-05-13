@@ -2,13 +2,31 @@
 
 import json
 import re
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
-from string import Template
 
-from stages._client import call_simple, call_with_cache, strip_code_fence
+from stages._client import call_simple, call_with_cache, render_prompt, strip_code_fence
 
-PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+# Hard cap on parallel scans. Anthropic's per-key request limits allow much more,
+# but a small ceiling keeps 429 storms rare. SDK retries the rest with backoff.
+MAX_SCAN_WORKERS = 3
+
+# Minimum interval between submitted requests (seconds). Smooths the initial burst.
+_REQUEST_STAGGER = 0.25
+_stagger_lock = threading.Lock()
+_last_submit = 0.0
+
+
+def _throttle() -> None:
+    """Block until at least _REQUEST_STAGGER seconds have passed since the last submit."""
+    global _last_submit
+    with _stagger_lock:
+        now = time.monotonic()
+        wait = _REQUEST_STAGGER - (now - _last_submit)
+        if wait > 0:
+            time.sleep(wait)
+        _last_submit = time.monotonic()
 
 SCAN_TOOL = {
     "name": "submit_scan",
@@ -28,9 +46,7 @@ SCAN_TOOL = {
 
 def quick_scan(vacancy_text: str, cv_text: str) -> dict:
     """Quick Haiku scan of a single vacancy. Returns title, org, fit_score, reason."""
-    prompt = Template((PROMPTS_DIR / "batch_scan.txt").read_text()).substitute(
-        vacancy_text=vacancy_text, cv_text=cv_text,
-    )
+    prompt = render_prompt("batch_scan.txt", vacancy_text=vacancy_text, cv_text=cv_text)
 
     message = call_with_cache(
         model="claude-haiku-4-5-20251001",
@@ -47,19 +63,18 @@ def quick_scan(vacancy_text: str, cv_text: str) -> dict:
     raise RuntimeError("Quick scan: model did not return a submit_scan tool call.")
 
 
-# Known ATS URL patterns that unambiguously identify individual job listings
-_ATS_PATTERNS = [
-    r"greenhouse\.io/.+/jobs/\d+",
-    r"lever\.co/.+/.{8}-.{4}-.{4}-.{4}-.{12}",  # lever UUIDs
-    r"jobs\.lever\.co/.+/.{8}-.{4}",
-    r"myworkdayjobs\.com/.+/job/",
-    r"taleo\.net/.+/requisition/",
-    r"smartrecruiters\.com/.+/job/",
-    r"ashbyhq\.com/.+/",
-    r"breezy\.hr/.+/position/",
-    r"workable\.com/.+/j/",
-]
-_ATS_RE = re.compile("|".join(_ATS_PATTERNS))
+# Known ATS URL patterns loaded from stages/ats_patterns.json.
+# Add new platforms there without touching this file.
+def _load_ats_patterns() -> "re.Pattern[str]":
+    from pathlib import Path
+    config = json.loads((Path(__file__).resolve().parent / "ats_patterns.json").read_text())
+    patterns = config.get("patterns", [])
+    if not patterns:
+        return re.compile(r"(?!x)x")  # never matches
+    return re.compile("|".join(patterns))
+
+
+_ATS_RE = _load_ats_patterns()
 
 
 def extract_job_urls(page_url: str) -> list[str]:
@@ -114,16 +129,19 @@ def _fetch_links_playwright(page_url: str) -> list[str]:
     return render_page(page_url, what="links")
 
 
-def scan_all(vacancies: list[tuple[str, str]], cv_text: str, max_workers: int = 5) -> list[dict]:
+def scan_all(vacancies: list[tuple[str, str]], cv_text: str,
+             max_workers: int = MAX_SCAN_WORKERS) -> list[dict]:
     """
     Quick-scan multiple vacancies in parallel.
     vacancies: list of (source_label, vacancy_text)
     Returns list of result dicts (same order as input), each with added 'source' and 'vacancy_text'.
+    Concurrency capped by `max_workers`; calls staggered by _REQUEST_STAGGER to avoid 429 bursts.
     Failed scans get fit_score='Error' and a reason describing the failure.
     """
     results = [None] * len(vacancies)
 
     def scan_one(index: int, source: str, text: str):
+        _throttle()
         try:
             result = quick_scan(text, cv_text)
         except Exception as e:
@@ -149,11 +167,17 @@ def scan_all(vacancies: list[tuple[str, str]], cv_text: str, max_workers: int = 
     return results
 
 
-def make_slug(title: str, org: str) -> str:
+def make_slug(title: str, org: str, max_len: int = 60) -> str:
     """Generate a URL-safe slug from position title and organisation."""
     combined = f"{title}-{org}"
     slug = re.sub(r"[^a-z0-9]+", "-", combined.lower()).strip("-")
-    return slug[:60]
+    if len(slug) <= max_len:
+        return slug
+    truncated = slug[:max_len]
+    last_dash = truncated.rfind("-")
+    if last_dash >= max_len // 2:
+        truncated = truncated[:last_dash]
+    return truncated.rstrip("-")
 
 
 def parse_selection(raw: str, max_n: int) -> list[int]:

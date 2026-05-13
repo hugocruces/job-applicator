@@ -1,0 +1,14 @@
+{
+  "_comment": "Regex patterns matching individual job-listing URLs on known ATS platforms. Add new patterns here without touching code.",
+  "patterns": [
+    "greenhouse\\.io/.+/jobs/\\d+",
+    "lever\\.co/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    "jobs\\.lever\\.co/.+/[0-9a-f]{8}-[0-9a-f]{4}",
+    "myworkdayjobs\\.com/.+/job/",
+    "taleo\\.net/.+/requisition/",
+    "smartrecruiters\\.com/.+/job/",
+    "ashbyhq\\.com/.+/",
+    "breezy\\.hr/.+/position/",
+    "workable\\.com/.+/j/"
+  ]
+}

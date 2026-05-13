@@ -1,17 +1,14 @@
-"""Stage 3 — Document Adaptation: adapt CV and cover letter for the vacancy."""
+"""Stage 4-5 — Document Adaptation: adapt CV and cover letter for the vacancy."""
 
 import json
-from pathlib import Path
-from string import Template
 
-from stages._client import call_with_cache, strip_code_fence
-
-PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+from stages._client import call_with_cache, render_prompt, strip_code_fence
 
 
 def adapt_cv(vacancy_text: str, analysis: dict, cv_tex: str) -> str:
     """Return adapted CV LaTeX source."""
-    prompt = Template((PROMPTS_DIR / "adapt_cv.txt").read_text()).substitute(
+    prompt = render_prompt(
+        "adapt_cv.txt",
         vacancy_text=vacancy_text,
         analysis_json=json.dumps(analysis, indent=2),
         cv_tex=cv_tex,
@@ -21,7 +18,8 @@ def adapt_cv(vacancy_text: str, analysis: dict, cv_tex: str) -> str:
 
 def adapt_cl(vacancy_text: str, analysis: dict, cl_tex: str) -> str:
     """Return adapted cover letter LaTeX source."""
-    prompt = Template((PROMPTS_DIR / "adapt_cl.txt").read_text()).substitute(
+    prompt = render_prompt(
+        "adapt_cl.txt",
         vacancy_text=vacancy_text,
         analysis_json=json.dumps(analysis, indent=2),
         cl_tex=cl_tex,
@@ -36,4 +34,7 @@ def _call_and_extract(prompt: str, stage_label: str) -> str:
         prompt=prompt,
         stage_label=stage_label,
     )
-    return strip_code_fence(message.content[0].text)
+    text_blocks = [b for b in message.content if getattr(b, "type", None) == "text"]
+    if not text_blocks:
+        raise RuntimeError(f"{stage_label}: model returned no text content.")
+    return strip_code_fence(text_blocks[0].text)

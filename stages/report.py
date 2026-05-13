@@ -1,12 +1,8 @@
-"""Stage 3 — Report Generation: produce interview preparation report."""
+"""Stage 3 — Report Generation: produce Markdown interview preparation report."""
 
 import json
-from pathlib import Path
-from string import Template
 
-from stages._client import call_with_cache
-
-PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "report.txt"
+from stages._client import call_with_cache, render_prompt, strip_code_fence
 
 
 def generate_report(
@@ -15,7 +11,8 @@ def generate_report(
     cv_text: str,
 ) -> str:
     """Return a Markdown interview preparation report."""
-    prompt = Template(PROMPT_PATH.read_text()).substitute(
+    prompt = render_prompt(
+        "report.txt",
         vacancy_text=vacancy_text,
         analysis_json=json.dumps(analysis, indent=2),
         cv_text=cv_text,
@@ -27,4 +24,4 @@ def generate_report(
         prompt=prompt,
         stage_label="Report Generation",
     )
-    return message.content[0].text
+    return strip_code_fence(message.content[0].text, languages=("markdown", "md"))
