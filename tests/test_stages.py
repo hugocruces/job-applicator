@@ -127,6 +127,36 @@ class TestExtractJobUrls(unittest.TestCase):
             self.assertEqual(batch.extract_job_urls("https://example.com/careers"), [])
 
 
+class TestEstimateBatchTokens(unittest.TestCase):
+    def test_all_mode_higher_than_report_mode(self):
+        from stages.orchestrate import estimate_batch_input_tokens
+
+        results = [
+            {"vacancy_text": "v" * 4000},
+            {"vacancy_text": "v" * 4000},
+        ]
+        cv_tex = "c" * 8000
+        cl_tex = "l" * 6000
+        prefs = "p" * 2000
+
+        report_est = estimate_batch_input_tokens(
+            [0, 1], results, cv_tex, cl_tex, prefs, "report",
+        )
+        all_est = estimate_batch_input_tokens(
+            [0, 1], results, cv_tex, cl_tex, prefs, "all",
+        )
+        self.assertGreater(all_est, report_est)
+        # Heuristic is chars//4; ensure result is in a plausible range, not zero.
+        self.assertGreater(report_est, 1000)
+
+    def test_empty_selection_is_zero(self):
+        from stages.orchestrate import estimate_batch_input_tokens
+
+        self.assertEqual(
+            estimate_batch_input_tokens([], [], "cv", "cl", "p", "all"), 0,
+        )
+
+
 class TestReport(unittest.TestCase):
     def test_returns_text(self):
         from stages.report import generate_report

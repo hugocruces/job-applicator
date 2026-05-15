@@ -118,6 +118,11 @@ modes:
                         help="Suppress progress output; only show warnings and errors")
     parser.add_argument("--verbose", action="store_true",
                         help="Show debug-level diagnostics (token usage, etc.)")
+    parser.add_argument("--batch-cost-warn", type=int, default=500_000,
+                        metavar="N",
+                        help="In batch mode, warn and confirm before running if estimated "
+                             "input tokens for the selected vacancies exceed N (default: 500000). "
+                             "Set to 0 to disable.")
     return parser
 
 
@@ -212,6 +217,7 @@ def main():
             args.vacancies, cv_tex, cl_tex, preferences_text,
             cv_path.stem, cl_path.stem,
             verify=args.verify, dry_run=args.dry_run,
+            cost_warn_tokens=args.batch_cost_warn,
         )
         return
 

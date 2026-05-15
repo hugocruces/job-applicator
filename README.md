@@ -33,6 +33,14 @@ python apply.py --vacancy <path_or_url> --slug <position-slug> [--mode all|repor
 | `adapt`         | Adapt CV → Adapt CL                                               | Adapt documents after reviewing the report; reuses saved data |
 | `batch`         | Quick-scan → interactive selection → full pipeline on chosen ones | Scan many vacancies at once and pick the best matches         |
 
+### Other flags
+
+- `--dry-run`: Estimate prompt sizes and exit without calling the API
+- `--verify`: After adapting, run a Haiku-based check that flags any phrases in the adapted CV/CL not supported by the originals
+- `--quiet` / `--verbose`: Suppress progress output, or show debug-level diagnostics (token usage, cache hits)
+- `--batch-cost-warn N`: In batch mode, warn and ask for confirmation if estimated input tokens for the selected vacancies exceed `N` (default `500000`; set `0` to disable)
+- `--cv-file` / `--cl-file`: Override the auto-detected `.tex` file in `CV/` or `CL/`
+
 ### Examples
 
 ```bash

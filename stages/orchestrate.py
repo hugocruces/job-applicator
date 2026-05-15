@@ -103,6 +103,35 @@ def collect_batch_sources(items: list[str]) -> list[tuple[str, str]]:
     return sources
 
 
+def estimate_batch_input_tokens(
+    selected: list[int],
+    results: list[dict],
+    cv_tex: str,
+    cl_tex: str,
+    preferences_text: str,
+    run_mode: str,
+) -> int:
+    """Rough heuristic estimate of total input tokens for selected vacancies.
+
+    Sums per-stage prompt sizes (vacancy + CV/CL + extras) and divides by 4. No API
+    call. Intended to drive a soft cost ceiling, not to bill exactly.
+    """
+    cv_n = len(cv_tex)
+    cl_n = len(cl_tex)
+    pref_n = len(preferences_text)
+    analysis_json_n = 600  # nominal analysis blob
+
+    total_chars = 0
+    for idx in selected:
+        v_n = len(results[idx].get("vacancy_text", ""))
+        total_chars += v_n + cv_n + cl_n + pref_n          # analyse (Haiku)
+        total_chars += v_n + cv_n + analysis_json_n         # report  (Sonnet)
+        if run_mode == "all":
+            total_chars += v_n + cv_n + analysis_json_n     # adapt CV (Sonnet)
+            total_chars += v_n + cl_n + analysis_json_n     # adapt CL (Sonnet)
+    return total_chars // 4
+
+
 def run_batch(
     items: list[str],
     cv_tex: str,
@@ -112,6 +141,7 @@ def run_batch(
     cl_stem: str,
     verify: bool,
     dry_run: bool,
+    cost_warn_tokens: int = 500_000,
 ) -> None:
     """Full batch flow: collect → scan → user-select → process."""
     from stages._client import estimate_tokens
@@ -153,6 +183,21 @@ def run_batch(
         "Run which mode for selected? [all/report] (default: report): "
     ).strip().lower()
     run_mode = "all" if mode_raw == "all" else "report"
+
+    if cost_warn_tokens > 0:
+        est = estimate_batch_input_tokens(
+            selected, results, cv_tex, cl_tex, preferences_text, run_mode,
+        )
+        if est > cost_warn_tokens:
+            log.warning(
+                "Estimated input tokens for %d selected vacancies in mode=%r: ~%d "
+                "(threshold %d). Prompt caching will reduce billed cost on CV/CL reuse.",
+                len(selected), run_mode, est, cost_warn_tokens,
+            )
+            confirm = input("Proceed? [y/N]: ").strip().lower()
+            if confirm not in ("y", "yes"):
+                log.info("Aborted by user.")
+                sys.exit(0)
 
     for idx in selected:
         r = results[idx]
