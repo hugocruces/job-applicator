@@ -11,12 +11,16 @@ from stages.log import get_logger
 log = get_logger(__name__)
 
 
-def ingest(source: str) -> str:
-    """Return plain text from a PDF path or URL."""
+def ingest(source: str, browser=None) -> str:
+    """Return plain text from a PDF path or URL.
+
+    If a BrowserSession is passed, URL fetches that need a headless browser
+    reuse it instead of launching a fresh Chromium.
+    """
     if os.path.isfile(source):
         return _extract_pdf(source)
     if source.startswith(("http://", "https://")):
-        return _fetch_url(source)
+        return _fetch_url(source, browser)
     raise ValueError(f"Source is neither a valid file path nor a URL: {source}")
 
 
@@ -37,7 +41,7 @@ def _extract_pdf(path: str) -> str:
 _THIN_TEXT_THRESHOLD = 500
 
 
-def _fetch_url(url: str) -> str:
+def _fetch_url(url: str, browser=None) -> str:
     text = ""
     http_error: Exception | None = None
     try:
@@ -58,8 +62,11 @@ def _fetch_url(url: str) -> str:
         if http_error is None:
             log.info("  Page returned only %d chars; retrying with Playwright...", len(text))
         try:
-            from stages._browser import render_page
-            rendered = render_page(url, what="text")
+            if browser is not None:
+                rendered = browser.render(url, what="text")
+            else:
+                from stages._browser import render_page
+                rendered = render_page(url, what="text")
             if isinstance(rendered, str) and rendered.strip():
                 text = rendered
         except Exception as e:

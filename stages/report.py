@@ -24,4 +24,8 @@ def generate_report(
         prompt=prompt,
         stage_label="Report Generation",
     )
-    return strip_code_fence(message.content[0].text, languages=("markdown", "md"))
+    text_blocks = [b for b in message.content if getattr(b, "type", None) == "text"]
+    if not text_blocks:
+        raise RuntimeError("Report Generation: model returned no text content.")
+    text = "".join(b.text for b in text_blocks)
+    return strip_code_fence(text, languages=("markdown", "md"))

@@ -17,29 +17,6 @@ Continuation plan for future agent sessions. Tasks already shipped are listed in
 
 ## Open items (ordered by impact)
 
-### 1. Concatenate all text blocks in adapt/report  *(correctness)*
-`stages/adapt.py:_call_and_extract` picks `text_blocks[0].text`; `stages/report.py:generate_report`
-picks `message.content[0].text`. If Sonnet returns >1 text block (refusal preamble + answer,
-or future thinking-summary blocks), tail content is silently dropped.
-- Fix: `"".join(b.text for b in message.content if getattr(b, "type", None) == "text")`,
-  then `strip_code_fence`.
-- Tiny but bug-class fix; protects against silent truncation.
-
-### 2. Reuse one Chromium for batch URL/page rendering  *(perf in batch mode)*
-`stages/_browser.py:render_page` does `asyncio.run` + fresh `chromium.launch` per call.
-In batch with an ATS landing page → N job URLs that all need ingest, that's N+1 cold
-launches at ~2s each.
-- Refactor to a `BrowserSession` context manager that launches once and exposes
-  `render(url, what=...)`. Call sites: `stages/batch.extract_job_urls`,
-  `stages/ingest._fetch_url`, `stages/orchestrate.collect_batch_sources`.
-- Single-vacancy flow can keep the one-shot helper as a thin wrapper.
-
-### 3. `parse_selection` should warn on unparseable tokens
-`stages/batch.parse_selection` silently drops `"foo"` in `"1, foo, 3"` — user gets
-`[0, 2]` and no signal that they mistyped.
-- Log a single `WARNING` listing all skipped tokens.
-- Adjust `tests/test_helpers.py` selection edge-case tests to assert the warning.
-
 ### 4. Centralise `preferences.md` read
 Read in two places: `apply.py:_dry_run_report` and `stages/analyse.analyse`. Easy to drift.
 - Read once at the top of `apply.main`, pass into `analyse()` and `_dry_run_report()`.
@@ -76,6 +53,21 @@ estimate is above it. Skip if you trust yourself with `Ctrl-C`.
 
 Reference commits: `git log --oneline` for the exact history.
 
+- `parse_selection` warns on unparseable tokens: collects skipped tokens and
+  emits one `WARNING` (`apply.batch` logger) listing them all. Empty parts
+  skipped silently. Tests in `test_helpers.py` assert the warning fires
+  once for garbage and not at all for clean input. Test count 40 → 42.
+- Reuse one Chromium for batch rendering: `stages/_browser.py` now exposes a
+  `BrowserSession` context manager (sync Playwright, lazy launch on first
+  `render()`, closes on exit). `render_page` kept as a thin one-shot wrapper.
+  `ingest()`/`_fetch_url`, `batch.extract_job_urls`/`_fetch_links_playwright`
+  take an optional `browser=` arg; `orchestrate.collect_batch_sources` opens
+  one session and threads it through all URL fetches. PDF-only batches never
+  launch a browser.
+- Concatenate all text blocks in adapt/report: `adapt._call_and_extract` and
+  `report.generate_report` now `"".join` all `type == "text"` blocks before
+  `strip_code_fence` (was `[0]` only — silently dropped tail content). Both
+  raise `RuntimeError` if no text block present.
 - Structured logging: `stages/log.py` exposes `configure(quiet, verbose)` +
   `get_logger(name)`. Root logger `apply` writes to stderr with bare
   `%(message)s`. `apply.py` calls `configure_logging` after parsing args.

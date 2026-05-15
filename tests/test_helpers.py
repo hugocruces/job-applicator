@@ -78,7 +78,20 @@ class TestParseSelection(unittest.TestCase):
         self.assertEqual(parse_selection("1,99", 3), [0])
 
     def test_garbage_dropped(self):
-        self.assertEqual(parse_selection("1,foo", 3), [0])
+        with self.assertLogs("apply.batch", level="WARNING") as cm:
+            self.assertEqual(parse_selection("1,foo", 3), [0])
+        self.assertIn("foo", cm.output[0])
+
+    def test_multiple_garbage_warned_once(self):
+        with self.assertLogs("apply.batch", level="WARNING") as cm:
+            self.assertEqual(parse_selection("1, foo, bar, 3", 5), [0, 2])
+        self.assertEqual(len(cm.output), 1)
+        self.assertIn("foo", cm.output[0])
+        self.assertIn("bar", cm.output[0])
+
+    def test_clean_selection_no_warning(self):
+        with self.assertNoLogs("apply.batch", level="WARNING"):
+            parse_selection("1,3", 5)
 
     def test_empty_string(self):
         self.assertEqual(parse_selection("", 3), [])

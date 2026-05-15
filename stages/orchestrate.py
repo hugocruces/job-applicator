@@ -67,32 +67,39 @@ def process_vacancy(
 
 
 def collect_batch_sources(items: list[str]) -> list[tuple[str, str]]:
-    """Resolve each input (URL or PDF path) into (source_label, vacancy_text) pairs."""
+    """Resolve each input (URL or PDF path) into (source_label, vacancy_text) pairs.
+
+    A single BrowserSession is shared across every URL fetch in the batch, so
+    the run pays one Chromium launch rather than one per page.
+    """
+    from stages._browser import BrowserSession
+
     sources: list[tuple[str, str]] = []
-    for item in items:
-        if item.startswith(("http://", "https://")):
-            log.info("  Extracting job listings from %s...", item)
-            try:
-                job_urls = extract_job_urls(item)
-            except Exception as e:
-                log.warning("  Failed to fetch page: %s", e)
-                continue
-
-            if not job_urls:
-                log.info("  No individual job listings found on that page.")
-                continue
-
-            log.info("  Found %d listings. Fetching...", len(job_urls))
-            for url in job_urls:
+    with BrowserSession() as browser:
+        for item in items:
+            if item.startswith(("http://", "https://")):
+                log.info("  Extracting job listings from %s...", item)
                 try:
-                    sources.append((url, ingest(url)))
+                    job_urls = extract_job_urls(item, browser=browser)
                 except Exception as e:
-                    log.warning("  Skipping %s: %s", url, e)
-        else:
-            try:
-                sources.append((item, ingest(item)))
-            except Exception as e:
-                log.warning("  Skipping %s: %s", item, e)
+                    log.warning("  Failed to fetch page: %s", e)
+                    continue
+
+                if not job_urls:
+                    log.info("  No individual job listings found on that page.")
+                    continue
+
+                log.info("  Found %d listings. Fetching...", len(job_urls))
+                for url in job_urls:
+                    try:
+                        sources.append((url, ingest(url, browser=browser)))
+                    except Exception as e:
+                        log.warning("  Skipping %s: %s", url, e)
+            else:
+                try:
+                    sources.append((item, ingest(item, browser=browser)))
+                except Exception as e:
+                    log.warning("  Skipping %s: %s", item, e)
     return sources
 
 

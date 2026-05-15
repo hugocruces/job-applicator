@@ -37,4 +37,4 @@ def _call_and_extract(prompt: str, stage_label: str) -> str:
     text_blocks = [b for b in message.content if getattr(b, "type", None) == "text"]
     if not text_blocks:
         raise RuntimeError(f"{stage_label}: model returned no text content.")
-    return strip_code_fence(text_blocks[0].text)
+    return strip_code_fence("".join(b.text for b in text_blocks))

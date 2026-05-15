@@ -7,6 +7,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from stages._client import call_simple, call_with_cache, render_prompt, strip_code_fence
+from stages.log import get_logger
+
+log = get_logger(__name__)
 
 # Hard cap on parallel scans. Anthropic's per-key request limits allow much more,
 # but a small ceiling keeps 429 storms rare. SDK retries the rest with backoff.
@@ -77,14 +80,16 @@ def _load_ats_patterns() -> "re.Pattern[str]":
 _ATS_RE = _load_ats_patterns()
 
 
-def extract_job_urls(page_url: str) -> list[str]:
+def extract_job_urls(page_url: str, browser=None) -> list[str]:
     """
     Extract individual job listing URLs from a careers page.
     Uses Playwright to render JS-heavy pages. Tries a fast heuristic for known
     ATS platforms (Greenhouse, Lever, Workday, …) first; falls back to Claude
     Haiku classification when no ATS links are detected.
+
+    If a BrowserSession is passed, it is reused instead of launching Chromium.
     """
-    all_links = _fetch_links_playwright(page_url)
+    all_links = _fetch_links_playwright(page_url, browser)
     if not all_links:
         return []
 
@@ -123,8 +128,10 @@ def extract_job_urls(page_url: str) -> list[str]:
         return []
 
 
-def _fetch_links_playwright(page_url: str) -> list[str]:
+def _fetch_links_playwright(page_url: str, browser=None) -> list[str]:
     """Render a page with Playwright (handles JS) and return all href values."""
+    if browser is not None:
+        return browser.render(page_url, what="links")
     from stages._browser import render_page
     return render_page(page_url, what="links")
 
@@ -181,14 +188,21 @@ def make_slug(title: str, org: str, max_len: int = 60) -> str:
 
 
 def parse_selection(raw: str, max_n: int) -> list[int]:
-    """Parse user input like '1,3', '2-4', 'all' into sorted 0-based indices."""
+    """Parse user input like '1,3', '2-4', 'all' into sorted 0-based indices.
+
+    Tokens that can't be parsed as a number or range are skipped and reported
+    in a single WARNING so a typo doesn't pass silently.
+    """
     raw = raw.strip().lower()
     if raw in ("all", "*"):
         return list(range(max_n))
 
     indices: set[int] = set()
+    skipped: list[str] = []
     for part in raw.split(","):
         part = part.strip()
+        if not part:
+            continue
         if "-" in part:
             try:
                 start, end = part.split("-", 1)
@@ -196,13 +210,16 @@ def parse_selection(raw: str, max_n: int) -> list[int]:
                     if 1 <= i <= max_n:
                         indices.add(i - 1)
             except ValueError:
-                pass
+                skipped.append(part)
         else:
             try:
                 i = int(part)
                 if 1 <= i <= max_n:
                     indices.add(i - 1)
             except ValueError:
-                pass
+                skipped.append(part)
+
+    if skipped:
+        log.warning("Ignored unparseable selection token(s): %s", ", ".join(skipped))
 
     return sorted(indices)
