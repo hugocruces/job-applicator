@@ -1,5 +1,7 @@
 """Playwright-based page rendering helpers (shared across ingest and batch)."""
 
+from typing import Any
+
 
 class BrowserSession:
     """
@@ -9,8 +11,8 @@ class BrowserSession:
     """
 
     def __init__(self) -> None:
-        self._pw = None
-        self._browser = None
+        self._pw: Any = None
+        self._browser: Any = None
 
     def __enter__(self) -> "BrowserSession":
         return self
@@ -34,9 +36,17 @@ class BrowserSession:
 
         page = self._browser.new_page()
         try:
-            page.goto(page_url, wait_until="networkidle", timeout=30_000)
+            # networkidle is unreliable on real careers pages (analytics
+            # beacons, chat widgets often keep the network busy past the 30s
+            # timeout). domcontentloaded + a short paint settle is enough.
+            page.goto(page_url, wait_until="domcontentloaded", timeout=30_000)
             if what == "links":
+                try:
+                    page.wait_for_selector("a[href]", timeout=5_000)
+                except Exception:
+                    pass
                 return page.eval_on_selector_all("a[href]", "els => els.map(el => el.href)")
+            page.wait_for_timeout(1_500)
             return page.evaluate("() => document.body.innerText")
         finally:
             page.close()

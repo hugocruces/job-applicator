@@ -156,11 +156,11 @@ _DRY_RUN_ANALYSIS_STUB = json.dumps({
 }, indent=2)
 
 
-def _dry_run_report(slug: str, vacancy_text: str, cv_tex: str, cl_tex: str, mode: str) -> None:
+def _dry_run_report(
+    slug: str, vacancy_text: str, cv_tex: str, cl_tex: str,
+    preferences_text: str, mode: str,
+) -> None:
     """Estimate prompt sizes for each stage that would run; no API calls."""
-    preferences_path = ROOT / "preferences.md"
-    preferences_text = preferences_path.read_text() if preferences_path.exists() else ""
-
     estimates: list[tuple[str, int]] = []
     if mode in ("all", "report"):
         p = render_prompt("analyse.txt",
@@ -198,6 +198,8 @@ def main():
     cl_path = find_tex(ROOT / "CL", "cover letter", override=args.cl_file)
     cv_tex = cv_path.read_text()
     cl_tex = cl_path.read_text()
+    preferences_path = ROOT / "preferences.md"
+    preferences_text = preferences_path.read_text() if preferences_path.exists() else ""
 
     needs_browser = args.mode == "batch" or (args.vacancy and args.vacancy.startswith(("http://", "https://")))
     if needs_browser and not args.dry_run:
@@ -207,7 +209,8 @@ def main():
         if not args.vacancies:
             parser.error("--vacancies is required for batch mode")
         run_batch(
-            args.vacancies, cv_tex, cl_tex, cv_path.stem, cl_path.stem,
+            args.vacancies, cv_tex, cl_tex, preferences_text,
+            cv_path.stem, cl_path.stem,
             verify=args.verify, dry_run=args.dry_run,
         )
         return
@@ -233,13 +236,13 @@ def main():
         log.info("  Extracted %d characters.", len(vacancy_text))
 
         if args.dry_run:
-            _dry_run_report(args.slug, vacancy_text, cv_tex, cl_tex, args.mode)
+            _dry_run_report(args.slug, vacancy_text, cv_tex, cl_tex, preferences_text, args.mode)
             return
 
         vacancy_path.write_text(vacancy_text)
 
         log.info("Stage 2: Running gap analysis...")
-        analysis = analyse(vacancy_text, cv_tex, cl_tex)
+        analysis = analyse(vacancy_text, cv_tex, cl_tex, preferences_text)
         analysis_path.write_text(json.dumps(analysis, indent=2, ensure_ascii=False))
         log.info("  Fit score: %s", analysis.get("fit_score", "N/A"))
         log.info("  Analysis saved to %s", analysis_path)
@@ -254,7 +257,7 @@ def main():
         analysis = json.loads(analysis_path.read_text())
 
         if args.dry_run:
-            _dry_run_report(args.slug, vacancy_text, cv_tex, cl_tex, args.mode)
+            _dry_run_report(args.slug, vacancy_text, cv_tex, cl_tex, preferences_text, args.mode)
             return
 
     process_vacancy(

@@ -5,6 +5,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import cast
 
 from stages._client import call_simple, call_with_cache, render_prompt, strip_code_fence
 from stages.log import get_logger
@@ -131,9 +132,11 @@ def extract_job_urls(page_url: str, browser=None) -> list[str]:
 def _fetch_links_playwright(page_url: str, browser=None) -> list[str]:
     """Render a page with Playwright (handles JS) and return all href values."""
     if browser is not None:
-        return browser.render(page_url, what="links")
-    from stages._browser import render_page
-    return render_page(page_url, what="links")
+        rendered = browser.render(page_url, what="links")
+    else:
+        from stages._browser import render_page
+        rendered = render_page(page_url, what="links")
+    return cast(list[str], rendered)
 
 
 def scan_all(vacancies: list[tuple[str, str]], cv_text: str,
@@ -145,7 +148,7 @@ def scan_all(vacancies: list[tuple[str, str]], cv_text: str,
     Concurrency capped by `max_workers`; calls staggered by _REQUEST_STAGGER to avoid 429 bursts.
     Failed scans get fit_score='Error' and a reason describing the failure.
     """
-    results = [None] * len(vacancies)
+    results: list[dict | None] = [None] * len(vacancies)
 
     def scan_one(index: int, source: str, text: str):
         _throttle()
@@ -171,7 +174,7 @@ def scan_all(vacancies: list[tuple[str, str]], cv_text: str,
             idx, result = future.result()
             results[idx] = result
 
-    return results
+    return cast(list[dict], results)
 
 
 def make_slug(title: str, org: str, max_len: int = 60) -> str:

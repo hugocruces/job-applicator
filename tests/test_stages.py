@@ -91,6 +91,42 @@ class TestBatchScan(unittest.TestCase):
             self.assertEqual(quick_scan("V", "C"), expected)
 
 
+class TestExtractJobUrls(unittest.TestCase):
+    def test_haiku_fallback_parses_json_and_filters(self):
+        from stages import batch
+
+        non_ats_links = [
+            "https://example.com/jobs/analyst",
+            "https://example.com/about",
+            "/relative/path",
+        ]
+        # Haiku returns 3 URLs but one is not http; assert the http filter drops it.
+        json_reply = (
+            '["https://example.com/jobs/analyst", '
+            '"https://example.com/jobs/economist", '
+            '"mailto:hr@example.com"]'
+        )
+        msg = _mk_message([_text_block(json_reply)])
+        ctx, _ = _patch_client([msg])
+        with patch("stages.batch._fetch_links_playwright", return_value=non_ats_links), ctx:
+            out = batch.extract_job_urls("https://example.com/careers")
+        self.assertEqual(out, [
+            "https://example.com/jobs/analyst",
+            "https://example.com/jobs/economist",
+        ])
+
+    def test_haiku_fallback_invalid_json_returns_empty(self):
+        from stages import batch
+
+        msg = _mk_message([_text_block("not json")])
+        ctx, _ = _patch_client([msg])
+        with patch(
+            "stages.batch._fetch_links_playwright",
+            return_value=["https://example.com/random"],
+        ), ctx:
+            self.assertEqual(batch.extract_job_urls("https://example.com/careers"), [])
+
+
 class TestReport(unittest.TestCase):
     def test_returns_text(self):
         from stages.report import generate_report

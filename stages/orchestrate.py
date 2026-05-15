@@ -107,6 +107,7 @@ def run_batch(
     items: list[str],
     cv_tex: str,
     cl_tex: str,
+    preferences_text: str,
     cv_stem: str,
     cl_stem: str,
     verify: bool,
@@ -167,7 +168,7 @@ def run_batch(
         (output_dir / f"vacancy-{slug}.txt").write_text(vacancy_text)
 
         log.info("Stage 2: Running gap analysis...")
-        analysis = analyse(vacancy_text, cv_tex, cl_tex)
+        analysis = analyse(vacancy_text, cv_tex, cl_tex, preferences_text)
         analysis_path = output_dir / f"analysis-{slug}.json"
         analysis_path.write_text(json.dumps(analysis, indent=2, ensure_ascii=False))
         log.info("  Fit score: %s", analysis.get("fit_score", "N/A"))

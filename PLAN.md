@@ -17,32 +17,6 @@ Continuation plan for future agent sessions. Tasks already shipped are listed in
 
 ## Open items (ordered by impact)
 
-### 4. Centralise `preferences.md` read
-Read in two places: `apply.py:_dry_run_report` and `stages/analyse.analyse`. Easy to drift.
-- Read once at the top of `apply.main`, pass into `analyse()` and `_dry_run_report()`.
-- Drop `PREFERENCES_PATH` constant from `analyse.py`.
-
-### 5. Decide on mypy: wire it into CI or drop the config
-`pyproject.toml` has a `[tool.mypy]` block and `mypy>=1.10` in dev extras, but
-`.github/workflows/ci.yml` doesn't run it. Either:
-- (a) Add a `mypy stages apply.py` step to CI (matrix or single Python version);
-- (b) Remove `[tool.mypy]` and the dev dep until it's actually used.
-Pick whichever matches whether you want type-checking enforced. Don't leave both half-done.
-
-### 6. Switch Playwright wait condition from `networkidle` to `domcontentloaded`
-`stages/_browser.py` uses `wait_until="networkidle"`. Real-world careers pages
-(analytics beacons, chat widgets) often never reach idle and burn the full 30s
-timeout before falling back.
-- Use `wait_until="domcontentloaded"` + `await page.wait_for_timeout(1500)` to
-  let JS-rendered content paint.
-- Optional: a single `await page.wait_for_selector("a[href]", timeout=5000)` for
-  the `what="links"` path.
-
-### 7. Test for `extract_job_urls` Haiku-classifier fallback
-Current tests cover ATS regex matches. The `call_simple` fallback path (when no
-ATS links found) is uncovered. Mock `call_simple` to return a JSON URL list and
-assert parsing + the `startswith("http")` filter.
-
 ### 8. Optional batch cost ceiling
 Currently `run_batch` will gleefully run Sonnet adapt on every selection if user
 types `all`. Add a soft warning when estimated batch input tokens exceed a
@@ -53,6 +27,27 @@ estimate is above it. Skip if you trust yourself with `Ctrl-C`.
 
 Reference commits: `git log --oneline` for the exact history.
 
+- Test for `extract_job_urls` Haiku-classifier fallback: two new tests in
+  `tests/test_stages.py::TestExtractJobUrls` mock `_fetch_links_playwright`
+  with non-ATS URLs to force the `call_simple` path, then assert (a) JSON
+  parsing + `startswith("http")` filter (drops `mailto:`), (b) invalid JSON
+  returns `[]`. Test count 42 → 44.
+- mypy wired into CI: `.github/workflows/ci.yml` runs `mypy stages apply.py`
+  after ruff. Three small annotation fixes to pass clean:
+  `_browser.BrowserSession._pw/_browser` typed `Any`,
+  `batch._fetch_links_playwright` casts `render` result to `list[str]`,
+  `batch.scan_all` annotates `results: list[dict | None]` + `cast(list[dict], …)`
+  on return.
+- Playwright wait condition switched to `domcontentloaded`: `_browser.render`
+  now uses `wait_until="domcontentloaded"` + `wait_for_timeout(1500)` for text
+  (lets JS-rendered content paint without burning the 30s `networkidle`
+  fallback). The `what="links"` path additionally awaits `wait_for_selector
+  ("a[href]", timeout=5000)` so JS-injected links are caught.
+- Centralised `preferences.md` read: read once in `apply.main`, passed as
+  `preferences_text` into `analyse()`, `_dry_run_report()`, and
+  `orchestrate.run_batch()`. `PREFERENCES_PATH` constant dropped from
+  `stages/analyse.py`. `analyse()` keeps a default `preferences_text=""` so
+  the existing test signatures still work.
 - `parse_selection` warns on unparseable tokens: collects skipped tokens and
   emits one `WARNING` (`apply.batch` logger) listing them all. Empty parts
   skipped silently. Tests in `test_helpers.py` assert the warning fires

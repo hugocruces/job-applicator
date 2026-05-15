@@ -1,10 +1,6 @@
 """Stage 2 — Gap Analysis: send vacancy + CV + CL to Claude for structured analysis."""
 
-from pathlib import Path
-
 from stages._client import call_with_cache, render_prompt
-
-PREFERENCES_PATH = Path(__file__).resolve().parent.parent / "preferences.md"
 
 ANALYSIS_TOOL = {
     "name": "submit_analysis",
@@ -46,10 +42,8 @@ ANALYSIS_TOOL = {
 }
 
 
-def analyse(vacancy_text: str, cv_text: str, cl_text: str) -> dict:
+def analyse(vacancy_text: str, cv_text: str, cl_text: str, preferences_text: str = "") -> dict:
     """Return a gap analysis dict from Claude."""
-    preferences_text = PREFERENCES_PATH.read_text() if PREFERENCES_PATH.exists() else ""
-
     prompt = render_prompt(
         "analyse.txt",
         vacancy_text=vacancy_text,
