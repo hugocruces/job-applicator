@@ -274,6 +274,12 @@ def main():
         verify=args.verify,
     )
 
+    if args.mode in ("all", "report") and args.vacancy and not args.vacancy.startswith(("http://", "https://")):
+        src = Path(args.vacancy)
+        if src.exists():
+            import shutil
+            shutil.move(str(src), output_dir / src.name)
+
     log.info("\nDone! Outputs in %s/", output_dir)
 
 
