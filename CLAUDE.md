@@ -32,7 +32,7 @@ tests/                   unittest, mocked Anthropic client
 output/<slug>/           per-vacancy artefacts (gitignored)
 CV/, CL/                 user's source LaTeX (gitignored)
 preferences.md           user's career preferences (gitignored)
-PLAN.md                  open improvement items + completed log
+.claude/skills/          Claude Code skill for vacancy pipeline triggering
 ```
 
 ## Commands
@@ -104,6 +104,4 @@ Always activate `.venv` before running anything. Never `pip install` globally.
 
 ## Open items + history
 
-See `PLAN.md` for open improvement items (ranked by impact) and the full list
-of work already completed in prior sessions. Read it before starting new work
-so you don't redo finished tasks.
+No open PLAN.md — all planned work is complete. Check `git log` for history of completed features.
