@@ -32,6 +32,7 @@ tests/                   unittest, mocked Anthropic client
 output/<slug>/           per-vacancy artefacts (gitignored)
 CV/, CL/                 user's source LaTeX (gitignored)
 preferences.md           user's career preferences (gitignored)
+notices/                 new vacancy notices land here (PDFs, gitignored)
 .claude/skills/          Claude Code skill for vacancy pipeline triggering
 ```
 
