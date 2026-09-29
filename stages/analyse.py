@@ -5,6 +5,7 @@ from stages._client import call_with_cache, render_prompt
 ANALYSIS_TOOL = {
     "name": "submit_analysis",
     "description": "Submit a structured gap analysis of the candidate against the vacancy.",
+    "strict": True,
     "input_schema": {
         "type": "object",
         "properties": {
@@ -17,6 +18,7 @@ ANALYSIS_TOOL = {
                     "nice_to_haves": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["must_haves", "nice_to_haves"],
+                "additionalProperties": False,
             },
             "strengths": {"type": "array", "items": {"type": "string"}},
             "gaps": {"type": "array", "items": {"type": "string"}},
@@ -31,6 +33,7 @@ ANALYSIS_TOOL = {
                     "summary": {"type": "string"},
                 },
                 "required": ["aligned", "misaligned", "unknown", "summary"],
+                "additionalProperties": False,
             },
         },
         "required": [
@@ -38,6 +41,7 @@ ANALYSIS_TOOL = {
             "strengths", "gaps", "fit_score", "fit_summary",
             "personal_objectives_fit",
         ],
+        "additionalProperties": False,
     },
 }
 
@@ -57,7 +61,7 @@ def analyse(vacancy_text: str, cv_text: str, cl_text: str, preferences_text: str
         max_tokens=8192,
         prompt=prompt,
         tools=[ANALYSIS_TOOL],
-        tool_choice={"type": "tool", "name": "submit_analysis"},
+        tool_choice={"type": "auto"},
         stage_label="Gap Analysis",
     )
 

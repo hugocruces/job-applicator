@@ -35,6 +35,7 @@ def _throttle() -> None:
 SCAN_TOOL = {
     "name": "submit_scan",
     "description": "Submit a quick fit assessment of the candidate against the vacancy.",
+    "strict": True,
     "input_schema": {
         "type": "object",
         "properties": {
@@ -44,6 +45,7 @@ SCAN_TOOL = {
             "reason": {"type": "string"},
         },
         "required": ["position_title", "organisation", "fit_score", "reason"],
+        "additionalProperties": False,
     },
 }
 
@@ -57,7 +59,7 @@ def quick_scan(vacancy_text: str, cv_text: str) -> dict:
         max_tokens=2048,
         prompt=prompt,
         tools=[SCAN_TOOL],
-        tool_choice={"type": "tool", "name": "submit_scan"},
+        tool_choice={"type": "auto"},
         stage_label="Quick Scan",
     )
 

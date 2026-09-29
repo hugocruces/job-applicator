@@ -60,7 +60,11 @@ Always activate `.venv` before running anything. Never `pip install` globally.
   url-classifier). Opus for generation (report, adapt). Model IDs:
   `claude-sonnet-5-5`, `claude-opus-5-5`. Update all sites if you bump models.
 - **Tool-use over JSON parsing** when the output is structured (see
-  `analyse.ANALYSIS_TOOL`, `batch.SCAN_TOOL`).
+  `analyse.ANALYSIS_TOOL`, `batch.SCAN_TOOL`). Sonnet/Opus 5.5 reject forced
+  `tool_choice` (`"tool"`/`"any"`): use `{"type": "auto"}` and have the prompt
+  tell the model to call the tool exactly once. Tools set `"strict": True`
+  (needs `additionalProperties: False` on every object; no numeric/string
+  constraints, no recursion).
 - **Output filenames** derive from the source `.tex` stem + slug. Don't
   hard-code `CV-hugocruces-` etc.
 - **ATS patterns**: add to `stages/ats_patterns.json`, never re-inline in code.
