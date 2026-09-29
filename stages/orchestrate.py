@@ -124,11 +124,11 @@ def estimate_batch_input_tokens(
     total_chars = 0
     for idx in selected:
         v_n = len(results[idx].get("vacancy_text", ""))
-        total_chars += v_n + cv_n + cl_n + pref_n          # analyse (Haiku)
-        total_chars += v_n + cv_n + analysis_json_n         # report  (Sonnet)
+        total_chars += v_n + cv_n + cl_n + pref_n          # analyse (Sonnet)
+        total_chars += v_n + cv_n + analysis_json_n         # report  (Opus)
         if run_mode == "all":
-            total_chars += v_n + cv_n + analysis_json_n     # adapt CV (Sonnet)
-            total_chars += v_n + cl_n + analysis_json_n     # adapt CL (Sonnet)
+            total_chars += v_n + cv_n + analysis_json_n     # adapt CV (Opus)
+            total_chars += v_n + cl_n + analysis_json_n     # adapt CL (Opus)
     return total_chars // 4
 
 

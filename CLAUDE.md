@@ -19,10 +19,10 @@ stages/
   _client.py             Anthropic client wrapper, prompt-cache plumbing,
                          render_prompt, estimate_tokens, strip_code_fence
   ingest.py              Stage 1: PDF + URL → text (Playwright fallback)
-  analyse.py             Stage 2: gap analysis (Haiku, tool-use)
-  report.py              Stage 3: interview-prep markdown (Sonnet)
-  adapt.py               Stages 4-5: adapt CV + CL LaTeX (Sonnet)
-  verify.py              Stage 6 (--verify): fabrication detector (Haiku)
+  analyse.py             Stage 2: gap analysis (Sonnet, tool-use)
+  report.py              Stage 3: interview-prep markdown (Opus)
+  adapt.py               Stages 4-5: adapt CV + CL LaTeX (Opus)
+  verify.py              Stage 6 (--verify): fabrication detector (Sonnet)
   batch.py               quick_scan + scan_all + ATS URL extraction
   orchestrate.py         process_vacancy + run_batch (called by apply.py)
   display.py             console formatting helpers

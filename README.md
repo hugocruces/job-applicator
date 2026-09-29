@@ -36,7 +36,7 @@ python apply.py --vacancy <path_or_url> --slug <position-slug> [--mode all|repor
 ### Other flags
 
 - `--dry-run`: Estimate prompt sizes and exit without calling the API
-- `--verify`: After adapting, run a Haiku-based check that flags any phrases in the adapted CV/CL not supported by the originals
+- `--verify`: After adapting, run a Sonnet-based check that flags any phrases in the adapted CV/CL not supported by the originals
 - `--quiet` / `--verbose`: Suppress progress output, or show debug-level diagnostics (token usage, cache hits)
 - `--batch-cost-warn N`: In batch mode, warn and ask for confirmation if estimated input tokens for the selected vacancies exceed `N` (default `500000`; set `0` to disable)
 - `--cv-file` / `--cl-file`: Override the auto-detected `.tex` file in `CV/` or `CL/`
@@ -76,7 +76,7 @@ All outputs are written to `output/<slug>/`:
 ## How It Works
 
 ### Batch Mode
-Quick-scans multiple vacancies in parallel using Claude Haiku and displays a ranked list:
+Quick-scans multiple vacancies in parallel using Claude Sonnet and displays a ranked list:
 
 ```
   1  [●●● Strong  ]  Senior Economist · World Bank
@@ -100,7 +100,7 @@ For URL inputs in batch mode, the tool fetches the page and extracts individual 
 Extracts text from the vacancy notice (PDF or URL) and saves it to disk.
 
 ### Stage 2: Gap Analysis
-Analyzes the vacancy against your CV, cover letter, and personal preferences using Claude Haiku, producing:
+Analyzes the vacancy against your CV, cover letter, and personal preferences using Claude Sonnet, producing:
 - Key requirements (must-haves and nice-to-haves)
 - Your strengths relative to the role
 - Identified gaps or weaknesses

@@ -51,7 +51,7 @@ SCAN_TOOL = {
 
 
 def quick_scan(vacancy_text: str, cv_text: str) -> dict:
-    """Quick Haiku scan of a single vacancy. Returns title, org, fit_score, reason."""
+    """Quick Sonnet scan of a single vacancy. Returns title, org, fit_score, reason."""
     prompt = render_prompt("batch_scan.txt", vacancy_text=vacancy_text, cv_text=cv_text)
 
     message = call_with_cache(
@@ -88,7 +88,7 @@ def extract_job_urls(page_url: str, browser=None) -> list[str]:
     Extract individual job listing URLs from a careers page.
     Uses Playwright to render JS-heavy pages. Tries a fast heuristic for known
     ATS platforms (Greenhouse, Lever, Workday, …) first; falls back to Claude
-    Haiku classification when no ATS links are detected.
+    Sonnet classification when no ATS links are detected.
 
     If a BrowserSession is passed, it is reused instead of launching Chromium.
     """

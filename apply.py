@@ -113,7 +113,7 @@ modes:
     parser.add_argument("--dry-run", action="store_true",
                         help="Estimate prompt sizes and exit without calling the API")
     parser.add_argument("--verify", action="store_true",
-                        help="Run a post-adaptation sanity check (Haiku) to flag fabricated phrases")
+                        help="Run a post-adaptation sanity check (Sonnet) to flag fabricated phrases")
     parser.add_argument("--quiet", action="store_true",
                         help="Suppress progress output; only show warnings and errors")
     parser.add_argument("--verbose", action="store_true",
@@ -171,20 +171,20 @@ def _dry_run_report(
         p = render_prompt("analyse.txt",
                           vacancy_text=vacancy_text, cv_text=cv_tex,
                           cl_text=cl_tex, preferences_text=preferences_text)
-        estimates.append(("Gap Analysis (Haiku)", estimate_tokens(p)))
+        estimates.append(("Gap Analysis (Sonnet)", estimate_tokens(p)))
         p = render_prompt("report.txt",
                           vacancy_text=vacancy_text, cv_text=cv_tex,
                           analysis_json=_DRY_RUN_ANALYSIS_STUB)
-        estimates.append(("Report (Sonnet)", estimate_tokens(p)))
+        estimates.append(("Report (Opus)", estimate_tokens(p)))
     if mode == "all":
         p = render_prompt("adapt_cv.txt",
                           vacancy_text=vacancy_text, cv_tex=cv_tex,
                           analysis_json=_DRY_RUN_ANALYSIS_STUB)
-        estimates.append(("Adapt CV (Sonnet)", estimate_tokens(p)))
+        estimates.append(("Adapt CV (Opus)", estimate_tokens(p)))
         p = render_prompt("adapt_cl.txt",
                           vacancy_text=vacancy_text, cl_tex=cl_tex,
                           analysis_json=_DRY_RUN_ANALYSIS_STUB)
-        estimates.append(("Adapt CL (Sonnet)", estimate_tokens(p)))
+        estimates.append(("Adapt CL (Opus)", estimate_tokens(p)))
 
     log.info("\nDry run for slug=%r mode=%r:", slug, mode)
     for label, n in estimates:
