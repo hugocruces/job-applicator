@@ -2,7 +2,7 @@
 
 import json
 
-from stages._client import call_with_cache, render_prompt, strip_code_fence
+from stages._client import call_with_cache, extract_text, render_prompt, strip_code_fence
 
 
 def adapt_cv(vacancy_text: str, analysis: dict, cv_tex: str) -> str:
@@ -34,7 +34,4 @@ def _call_and_extract(prompt: str, stage_label: str) -> str:
         prompt=prompt,
         stage_label=stage_label,
     )
-    text_blocks = [b for b in message.content if getattr(b, "type", None) == "text"]
-    if not text_blocks:
-        raise RuntimeError(f"{stage_label}: model returned no text content.")
-    return strip_code_fence("".join(b.text for b in text_blocks))
+    return strip_code_fence(extract_text(message, stage_label))

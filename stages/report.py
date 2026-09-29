@@ -2,7 +2,7 @@
 
 import json
 
-from stages._client import call_with_cache, render_prompt, strip_code_fence
+from stages._client import call_with_cache, extract_text, render_prompt, strip_code_fence
 
 
 def generate_report(
@@ -24,8 +24,5 @@ def generate_report(
         prompt=prompt,
         stage_label="Report Generation",
     )
-    text_blocks = [b for b in message.content if getattr(b, "type", None) == "text"]
-    if not text_blocks:
-        raise RuntimeError("Report Generation: model returned no text content.")
-    text = "".join(b.text for b in text_blocks)
+    text = extract_text(message, "Report Generation")
     return strip_code_fence(text, languages=("markdown", "md"))

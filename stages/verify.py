@@ -3,7 +3,7 @@
 import json
 import re
 
-from stages._client import call_simple, strip_code_fence
+from stages._client import call_simple, extract_text, strip_code_fence
 
 _VERIFY_PROMPT = """You are a fact-checker. Compare an ORIGINAL document to an ADAPTED version of it.
 List any phrases in the ADAPTED document that describe specific experience, roles, employers,
@@ -55,7 +55,7 @@ def find_fabrications(original: str, adapted: str, label: str = "Verify") -> lis
         prompt=prompt,
         stage_label=label,
     )
-    text = strip_code_fence(message.content[0].text)
+    text = strip_code_fence(extract_text(message, label))
     try:
         result = json.loads(text)
     except json.JSONDecodeError as e:

@@ -7,7 +7,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import cast
 
-from stages._client import call_simple, call_with_cache, render_prompt, strip_code_fence
+from stages._client import (
+    call_simple,
+    call_with_cache,
+    extract_text,
+    render_prompt,
+    strip_code_fence,
+)
 from stages.log import get_logger
 
 log = get_logger(__name__)
@@ -123,7 +129,7 @@ def extract_job_urls(page_url: str, browser=None) -> list[str]:
         stage_label="URL Classifier",
     )
 
-    text = strip_code_fence(message.content[0].text)
+    text = strip_code_fence(extract_text(message, "URL Classifier"))
     try:
         urls = json.loads(text)
         return [u for u in urls if isinstance(u, str) and u.startswith("http")]

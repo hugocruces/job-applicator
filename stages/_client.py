@@ -103,6 +103,14 @@ def call_simple(*, model: str, max_tokens: int, prompt: str, stage_label: str):
     return message
 
 
+def extract_text(message, stage_label: str) -> str:
+    """Join the text blocks of a response, skipping thinking blocks."""
+    text_blocks = [b for b in message.content if getattr(b, "type", None) == "text"]
+    if not text_blocks:
+        raise RuntimeError(f"{stage_label}: model returned no text content.")
+    return "".join(b.text for b in text_blocks)
+
+
 def strip_code_fence(text: str, languages: tuple[str, ...] = ("latex", "tex", "json")) -> str:
     """
     Strip a single surrounding ```lang ... ``` fence if present, returning inner text.
