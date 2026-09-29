@@ -19,7 +19,7 @@ def generate_report(
     )
 
     message = call_with_cache(
-        model="claude-sonnet-4-6",
+        model="claude-opus-5-5",
         max_tokens=16384,
         prompt=prompt,
         stage_label="Report Generation",

@@ -151,7 +151,7 @@ The file is ignored by git (see `.gitignore`) so it won't be committed.
 
 ## Tech Stack
 
-- **Claude API** (claude-haiku-4-5-20251001 for gap analysis, claude-sonnet-4-6 for report and document adaptation)
+- **Claude API** (claude-sonnet-5-5 for gap analysis, claude-opus-5-5 for report and document adaptation)
 - **pdfplumber** for PDF text extraction
 - **requests** + **BeautifulSoup4** for URL fetching
 - **python-dotenv** for `.env` loading

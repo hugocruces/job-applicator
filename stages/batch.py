@@ -53,7 +53,7 @@ def quick_scan(vacancy_text: str, cv_text: str) -> dict:
     prompt = render_prompt("batch_scan.txt", vacancy_text=vacancy_text, cv_text=cv_text)
 
     message = call_with_cache(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-5-5",
         max_tokens=2048,
         prompt=prompt,
         tools=[SCAN_TOOL],
@@ -115,7 +115,7 @@ def extract_job_urls(page_url: str, browser=None) -> list[str]:
     )
 
     message = call_simple(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-5-5",
         max_tokens=8192,
         prompt=prompt,
         stage_label="URL Classifier",

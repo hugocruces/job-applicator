@@ -56,10 +56,9 @@ Always activate `.venv` before running anything. Never `pip install` globally.
 - **Prompts**: edit files in `prompts/`. Vars use `$name` (string.Template).
   Static prefix and variable suffix separated by `===CACHE_BREAKPOINT===` —
   static side is prompt-cached.
-- **Models**: Haiku for cheap classification (analyse, batch_scan, verify,
-  url-classifier). Sonnet for generation (report, adapt). Model IDs:
-  `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`. Update both sites if you
-  bump models.
+- **Models**: Sonnet for classification (analyse, batch_scan, verify,
+  url-classifier). Opus for generation (report, adapt). Model IDs:
+  `claude-sonnet-5-5`, `claude-opus-5-5`. Update all sites if you bump models.
 - **Tool-use over JSON parsing** when the output is structured (see
   `analyse.ANALYSIS_TOOL`, `batch.SCAN_TOOL`).
 - **Output filenames** derive from the source `.tex` stem + slug. Don't

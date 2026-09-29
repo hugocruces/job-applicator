@@ -123,7 +123,7 @@ def strip_code_fence(text: str, languages: tuple[str, ...] = ("latex", "tex", "j
     return text
 
 
-_DEFAULT_COUNT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_COUNT_MODEL = "claude-sonnet-5-5"
 
 
 def estimate_tokens(text: str, model: str = _DEFAULT_COUNT_MODEL) -> int:
