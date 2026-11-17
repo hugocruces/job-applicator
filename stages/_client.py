@@ -57,6 +57,7 @@ def _call_cli(
     *,
     model: str,
     max_tokens: int,
+    effort: str,
     prompt: str,
     schema: dict | None,
     tool_name: str | None,
@@ -66,6 +67,7 @@ def _call_cli(
     argv = [
         "claude", "-p",
         "--model", model,
+        "--effort", effort,
         "--output-format", "json",
         "--no-session-persistence",
         "--system-prompt", _CLI_SYSTEM_PROMPT,
@@ -159,6 +161,7 @@ def call_with_cache(
     *,
     model: str,
     max_tokens: int,
+    effort: str,
     prompt: str,
     tools: list[dict] | None = None,
     tool_choice: dict | None = None,
@@ -174,6 +177,7 @@ def call_with_cache(
         message = _call_cli(
             model=model,
             max_tokens=max_tokens,
+            effort=effort,
             prompt=f"{cached}\n\n{variable}",
             schema=tools[0]["input_schema"] if tools else None,
             tool_name=tools[0]["name"] if tools else None,
@@ -190,6 +194,7 @@ def call_with_cache(
     kwargs: dict = {
         "model": model,
         "max_tokens": max_tokens,
+        "output_config": {"effort": effort},
         "messages": [{"role": "user", "content": content_blocks}],
     }
     if tools is not None:
@@ -205,11 +210,11 @@ def call_with_cache(
     return message
 
 
-def call_simple(*, model: str, max_tokens: int, prompt: str, stage_label: str):
+def call_simple(*, model: str, max_tokens: int, effort: str, prompt: str, stage_label: str):
     """Single-shot call with no caching (for one-off prompts like URL classification)."""
     if _BACKEND == "cli":
         message = _call_cli(
-            model=model, max_tokens=max_tokens, prompt=prompt,
+            model=model, max_tokens=max_tokens, effort=effort, prompt=prompt,
             schema=None, tool_name=None, stage_label=stage_label,
         )
         _log_usage(message, stage_label)
@@ -217,6 +222,7 @@ def call_simple(*, model: str, max_tokens: int, prompt: str, stage_label: str):
     message = _client().messages.create(
         model=model,
         max_tokens=max_tokens,
+        output_config={"effort": effort},
         messages=[{"role": "user", "content": prompt}],
     )
     if message.stop_reason == "max_tokens":

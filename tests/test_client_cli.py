@@ -40,7 +40,7 @@ class CliBackendTests(unittest.TestCase):
     def _call(self, run, **kw):
         with patch("stages._client.subprocess.run", run):
             return _client.call_with_cache(
-                model="claude-sonnet-5-5", max_tokens=1234, prompt=_PROMPT,
+                model="claude-sonnet-5-5", max_tokens=1234, effort="medium", prompt=_PROMPT,
                 stage_label="Test Stage", **kw,
             )
 
@@ -55,9 +55,12 @@ class CliBackendTests(unittest.TestCase):
         run = MagicMock(return_value=_proc(_ok("simple")))
         with patch("stages._client.subprocess.run", run):
             msg = _client.call_simple(
-                model="m", max_tokens=10, prompt="no marker needed", stage_label="S")
+                model="m", max_tokens=10, effort="high", prompt="no marker needed",
+                stage_label="S")
         self.assertEqual(_client.extract_text(msg, "S"), "simple")
-        self.assertNotIn("--json-schema", run.call_args.args[0])
+        argv = run.call_args.args[0]
+        self.assertNotIn("--json-schema", argv)
+        self.assertEqual(argv[argv.index("--effort") + 1], "high")
 
     def test_schema_result_through_analyse(self):
         payload = _ok(structured_output=_ANALYSIS, stop_reason="tool_use")
@@ -82,6 +85,7 @@ class CliBackendTests(unittest.TestCase):
         self._call(run)
         argv = run.call_args.args[0]
         self.assertEqual(argv[argv.index("--model") + 1], "claude-sonnet-5-5")
+        self.assertEqual(argv[argv.index("--effort") + 1], "medium")
         self.assertIn("--safe-mode", argv)
         self.assertIn("--strict-mcp-config", argv)
         self.assertEqual(argv[argv.index("--tools") + 1], "")

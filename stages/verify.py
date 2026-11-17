@@ -52,6 +52,7 @@ def find_fabrications(original: str, adapted: str, label: str = "Verify") -> lis
     message = call_simple(
         model="claude-sonnet-5-5",
         max_tokens=2048,
+        effort="high",
         prompt=prompt,
         stage_label=label,
     )

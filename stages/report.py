@@ -21,6 +21,7 @@ def generate_report(
     message = call_with_cache(
         model="claude-opus-5-5",
         max_tokens=16384,
+        effort="high",
         prompt=prompt,
         stage_label="Report Generation",
     )

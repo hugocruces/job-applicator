@@ -67,6 +67,7 @@ def quick_scan(vacancy_text: str, cv_text: str) -> dict:
     message = call_with_cache(
         model="claude-sonnet-5-5",
         max_tokens=2048,
+        effort="medium",
         prompt=prompt,
         tools=[SCAN_TOOL],
         tool_choice={"type": "auto"},
@@ -129,6 +130,7 @@ def extract_job_urls(page_url: str, browser=None) -> list[str]:
     message = call_simple(
         model="claude-sonnet-5-5",
         max_tokens=8192,
+        effort="medium",
         prompt=prompt,
         stage_label="URL Classifier",
     )

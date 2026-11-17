@@ -31,6 +31,7 @@ def _call_and_extract(prompt: str, stage_label: str) -> str:
     message = call_with_cache(
         model="claude-opus-5-5",
         max_tokens=16384,
+        effort="high",
         prompt=prompt,
         stage_label=stage_label,
     )

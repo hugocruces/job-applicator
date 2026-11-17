@@ -66,6 +66,7 @@ class TestAnalyse(unittest.TestCase):
         blocks = sent["messages"][0]["content"]
         self.assertEqual(blocks[0]["cache_control"], {"type": "ephemeral"})
         self.assertNotIn("cache_control", blocks[1])
+        self.assertEqual(sent["output_config"], {"effort": "high"})
 
     def test_missing_tool_call_raises(self):
         from stages.analyse import analyse

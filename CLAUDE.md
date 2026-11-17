@@ -60,6 +60,9 @@ Always activate `.venv` before running anything. Never `pip install` globally.
 - **Models**: Sonnet for classification (analyse, batch_scan, verify,
   url-classifier). Opus for generation (report, adapt). Model IDs:
   `claude-sonnet-5-5`, `claude-opus-5-5`. Update all sites if you bump models.
+- **Effort**: required `effort=` on every call (API: `output_config.effort`;
+  CLI: `--effort`). Opus `high`; Sonnet `high` for analyse/verify, `medium`
+  for batch scan + URL classifier.
 - **Tool-use over JSON parsing** when the output is structured (see
   `analyse.ANALYSIS_TOOL`, `batch.SCAN_TOOL`). Sonnet/Opus 5.5 reject forced
   `tool_choice` (`"tool"`/`"any"`): use `{"type": "auto"}` and have the prompt

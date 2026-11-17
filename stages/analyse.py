@@ -59,6 +59,7 @@ def analyse(vacancy_text: str, cv_text: str, cl_text: str, preferences_text: str
     message = call_with_cache(
         model="claude-sonnet-5-5",
         max_tokens=8192,
+        effort="high",
         prompt=prompt,
         tools=[ANALYSIS_TOOL],
         tool_choice={"type": "auto"},
