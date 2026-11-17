@@ -47,6 +47,7 @@ python apply.py --vacancy <path|url> --slug <slug>     # full pipeline
 python apply.py --mode batch --vacancies <…>           # batch
 python apply.py --slug <slug> --mode adapt             # adapt only (reuses saved data)
 python apply.py … --dry-run                            # estimate tokens, no API call
+python apply.py … --backend api                        # use the Anthropic API instead of `claude -p`
 ```
 
 Always activate `.venv` before running anything. Never `pip install` globally.
@@ -65,6 +66,18 @@ Always activate `.venv` before running anything. Never `pip install` globally.
   tell the model to call the tool exactly once. Tools set `"strict": True`
   (needs `additionalProperties: False` on every object; no numeric/string
   constraints, no recursion).
+- **Backends**: `--backend {api,cli}` (default `cli`), switched in
+  `stages/_client.py` via `set_backend` (library default is `api`). `cli` runs
+  each call as `claude -p` on the Claude Code subscription, returning
+  Message-shaped namespaces so stages are unchanged. The child env drops
+  `ANTHROPIC_API_KEY` (else billing moves to the API) and sets
+  `CLAUDE_CODE_MAX_OUTPUT_TOKENS` from `max_tokens`. Argv isolates the call
+  (`--system-prompt`, `--tools ""`, `--safe-mode --strict-mcp-config`) so no
+  CLAUDE.md, memory or MCP context leaks in. Hitting the cap is a hard
+  `RuntimeError` (no partial text, no `stop_reason == "max_tokens"` warning:
+  that path is API-only). Batch scans use `CLI_MAX_SCAN_WORKERS = 1`. Risk: the
+  Claude Code docs say `--bare` will become the default for `-p`; bare mode
+  ignores OAuth, so `cli` would then fail with an auth error.
 - **Output filenames** derive from the source `.tex` stem + slug. Don't
   hard-code `CV-hugocruces-` etc.
 - **ATS patterns**: add to `stages/ats_patterns.json`, never re-inline in code.

@@ -11,6 +11,7 @@ from stages._client import (
     call_simple,
     call_with_cache,
     extract_text,
+    get_backend,
     render_prompt,
     strip_code_fence,
 )
@@ -21,6 +22,9 @@ log = get_logger(__name__)
 # Hard cap on parallel scans. Anthropic's per-key request limits allow much more,
 # but a small ceiling keeps 429 storms rare. SDK retries the rest with backoff.
 MAX_SCAN_WORKERS = 3
+
+# Each `claude -p` call is a full process drawing on the subscription quota.
+CLI_MAX_SCAN_WORKERS = 1
 
 # Minimum interval between submitted requests (seconds). Smooths the initial burst.
 _REQUEST_STAGGER = 0.25
@@ -148,7 +152,7 @@ def _fetch_links_playwright(page_url: str, browser=None) -> list[str]:
 
 
 def scan_all(vacancies: list[tuple[str, str]], cv_text: str,
-             max_workers: int = MAX_SCAN_WORKERS) -> list[dict]:
+             max_workers: int | None = None) -> list[dict]:
     """
     Quick-scan multiple vacancies in parallel.
     vacancies: list of (source_label, vacancy_text)
@@ -156,6 +160,8 @@ def scan_all(vacancies: list[tuple[str, str]], cv_text: str,
     Concurrency capped by `max_workers`; calls staggered by _REQUEST_STAGGER to avoid 429 bursts.
     Failed scans get fit_score='Error' and a reason describing the failure.
     """
+    if max_workers is None:
+        max_workers = CLI_MAX_SCAN_WORKERS if get_backend() == "cli" else MAX_SCAN_WORKERS
     results: list[dict | None] = [None] * len(vacancies)
 
     def scan_one(index: int, source: str, text: str):

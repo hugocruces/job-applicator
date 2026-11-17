@@ -11,7 +11,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from stages._client import estimate_tokens, render_prompt
+from stages._client import estimate_tokens, render_prompt, set_backend
 from stages.analyse import analyse
 from stages.ingest import ingest
 from stages.log import configure as configure_logging
@@ -110,6 +110,9 @@ modes:
                         help="Which stages to run (default: all)")
     parser.add_argument("--cv-file", help="Override the auto-detected CV .tex file")
     parser.add_argument("--cl-file", help="Override the auto-detected cover letter .tex file")
+    parser.add_argument("--backend", choices=["api", "cli"], default="cli",
+                        help="LLM backend: 'cli' uses the Claude Code subscription through "
+                             "`claude -p` (default); 'api' uses the Anthropic API (needs ANTHROPIC_API_KEY)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Estimate prompt sizes and exit without calling the API")
     parser.add_argument("--verify", action="store_true",
@@ -197,6 +200,7 @@ def main():
     load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
+    set_backend(args.backend)
     configure_logging(quiet=args.quiet, verbose=args.verbose)
 
     cv_path = find_tex(ROOT / "CV", "CV", override=args.cv_file)

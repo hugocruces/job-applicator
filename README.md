@@ -35,6 +35,7 @@ python apply.py --vacancy <path_or_url> --slug <position-slug> [--mode all|repor
 
 ### Other flags
 
+- `--backend {api,cli}`: LLM backend. `cli` (default) runs every call through `claude -p` on your Claude Code subscription (requires the `claude` CLI, logged in); `api` uses the Anthropic API. Under `cli`, `ANTHROPIC_API_KEY` is stripped from the child process, batch scans run one at a time, and hitting a stage's `max_tokens` cap is an error rather than a truncated output
 - `--dry-run`: Estimate prompt sizes and exit without calling the API
 - `--verify`: After adapting, run a Sonnet-based check that flags any phrases in the adapted CV/CL not supported by the originals
 - `--quiet` / `--verbose`: Suppress progress output, or show debug-level diagnostics (token usage, cache hits)
@@ -133,7 +134,7 @@ If the file is left empty or not present, the rest of the pipeline works as norm
 ## Requirements
 
 - Python 3.9+
-- `.env` file with `ANTHROPIC_API_KEY` (auto-loaded at runtime)
+- `.env` file with `ANTHROPIC_API_KEY` (auto-loaded at runtime); only needed for `--backend api`
 - Your CV as a `.tex` file in `CV/` (one file only — replace `CV/CV-example.tex`)
 - Your cover letter as a `.tex` file in `CL/` (one file only — replace `CL/coverletter-example.tex`)
 - Personal preferences: `preferences.md` (optional but recommended)

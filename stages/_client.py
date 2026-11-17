@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 from pathlib import Path
 from string import Template
+from types import SimpleNamespace
 
 import anthropic
 
@@ -23,6 +27,105 @@ def render_prompt(name: str, **vars: str) -> str:
 # anthropic SDK's built-in retry handles 429/408/500/502/503/504/529 and network errors
 # with exponential backoff. We just bump the count from the default of 2.
 _MAX_RETRIES = 5
+
+
+_BACKEND = "api"
+
+_CLI_TIMEOUT_S = 600
+_CLI_SYSTEM_PROMPT = "You are a text-processing function. Follow the user's instructions exactly."
+_EXCERPT_CHARS = 300
+
+
+def set_backend(name: str) -> None:
+    """Select the LLM backend: "api" (Anthropic SDK) or "cli" (`claude -p`)."""
+    global _BACKEND
+    if name not in ("api", "cli"):
+        raise ValueError(f"Unknown backend {name!r}; expected 'api' or 'cli'.")
+    _BACKEND = name
+
+
+def get_backend() -> str:
+    return _BACKEND
+
+
+def _excerpt(text: str) -> str:
+    text = (text or "").strip()
+    return text[:_EXCERPT_CHARS] + ("..." if len(text) > _EXCERPT_CHARS else "")
+
+
+def _call_cli(
+    *,
+    model: str,
+    max_tokens: int,
+    prompt: str,
+    schema: dict | None,
+    tool_name: str | None,
+    stage_label: str,
+) -> SimpleNamespace:
+    """Run one `claude -p` call and return an Anthropic-Message-shaped namespace."""
+    argv = [
+        "claude", "-p",
+        "--model", model,
+        "--output-format", "json",
+        "--no-session-persistence",
+        "--system-prompt", _CLI_SYSTEM_PROMPT,
+        "--tools", "",
+        "--safe-mode",
+        "--strict-mcp-config",
+    ]
+    if schema is not None:
+        argv += ["--json-schema", json.dumps(schema)]
+
+    env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(max_tokens)
+
+    try:
+        proc = subprocess.run(
+            argv, input=prompt, capture_output=True, text=True,
+            env=env, timeout=_CLI_TIMEOUT_S, check=False,
+        )
+    except FileNotFoundError as e:
+        raise RuntimeError(
+            f"{stage_label}: `claude` binary not found. Install Claude Code or use --backend api."
+        ) from e
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"{stage_label}: `claude -p` timed out after {_CLI_TIMEOUT_S}s.") from e
+
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(
+            f"{stage_label}: `claude -p` exited {proc.returncode} without JSON output: "
+            f"{_excerpt(proc.stderr or proc.stdout)}"
+        ) from None
+
+    if data.get("api_error") == "max_output_tokens":
+        raise RuntimeError(
+            f"{stage_label}: the max_tokens cap ({max_tokens}) was hit; the CLI returns no partial text."
+        )
+    if data.get("is_error") or proc.returncode != 0:
+        raise RuntimeError(
+            f"{stage_label}: `claude -p` failed (exit {proc.returncode}, "
+            f"{data.get('api_error') or data.get('terminal_reason')}): {_excerpt(data.get('result', ''))}"
+        )
+
+    if schema is not None:
+        if "structured_output" not in data:
+            raise RuntimeError(
+                f"{stage_label}: `claude -p` returned no structured output: "
+                f"{_excerpt(data.get('result', ''))}"
+            )
+        content = [SimpleNamespace(type="tool_use", name=tool_name, input=data["structured_output"])]
+        stop_reason = "tool_use"
+    else:
+        content = [SimpleNamespace(type="text", text=data.get("result", ""))]
+        stop_reason = "end_turn"
+
+    return SimpleNamespace(
+        content=content,
+        stop_reason=stop_reason,
+        usage=SimpleNamespace(**data.get("usage", {})),
+    )
 
 
 def _client() -> anthropic.Anthropic:
@@ -67,6 +170,18 @@ def call_with_cache(
     """
     cached, variable = split_at_breakpoint(prompt)
 
+    if _BACKEND == "cli":
+        message = _call_cli(
+            model=model,
+            max_tokens=max_tokens,
+            prompt=f"{cached}\n\n{variable}",
+            schema=tools[0]["input_schema"] if tools else None,
+            tool_name=tools[0]["name"] if tools else None,
+            stage_label=stage_label,
+        )
+        _log_usage(message, stage_label)
+        return message
+
     content_blocks = [
         {"type": "text", "text": cached, "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": variable},
@@ -92,6 +207,13 @@ def call_with_cache(
 
 def call_simple(*, model: str, max_tokens: int, prompt: str, stage_label: str):
     """Single-shot call with no caching (for one-off prompts like URL classification)."""
+    if _BACKEND == "cli":
+        message = _call_cli(
+            model=model, max_tokens=max_tokens, prompt=prompt,
+            schema=None, tool_name=None, stage_label=stage_label,
+        )
+        _log_usage(message, stage_label)
+        return message
     message = _client().messages.create(
         model=model,
         max_tokens=max_tokens,
@@ -138,7 +260,10 @@ def estimate_tokens(text: str, model: str = _DEFAULT_COUNT_MODEL) -> int:
     """
     Token count for `text`. Tries Anthropic's `count_tokens` endpoint (accurate, free,
     does not count toward usage). Falls back to a chars/4 heuristic on error.
+    Under the cli backend, always the heuristic (count_tokens needs an API key).
     """
+    if _BACKEND == "cli":
+        return _heuristic_tokens(text)
     try:
         result = _client().messages.count_tokens(
             model=model,
