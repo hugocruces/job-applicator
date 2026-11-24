@@ -8,12 +8,15 @@ import subprocess
 from pathlib import Path
 from string import Template
 from types import SimpleNamespace
+from typing import Literal
 
 import anthropic
 
 from stages.log import get_logger
 
 log = get_logger(__name__)
+
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
 
 CACHE_MARKER = "===CACHE_BREAKPOINT==="
 
@@ -57,7 +60,7 @@ def _call_cli(
     *,
     model: str,
     max_tokens: int,
-    effort: str,
+    effort: Effort,
     prompt: str,
     schema: dict | None,
     tool_name: str | None,
@@ -161,7 +164,7 @@ def call_with_cache(
     *,
     model: str,
     max_tokens: int,
-    effort: str,
+    effort: Effort,
     prompt: str,
     tools: list[dict] | None = None,
     tool_choice: dict | None = None,
@@ -210,7 +213,7 @@ def call_with_cache(
     return message
 
 
-def call_simple(*, model: str, max_tokens: int, effort: str, prompt: str, stage_label: str):
+def call_simple(*, model: str, max_tokens: int, effort: Effort, prompt: str, stage_label: str):
     """Single-shot call with no caching (for one-off prompts like URL classification)."""
     if _BACKEND == "cli":
         message = _call_cli(
@@ -219,16 +222,16 @@ def call_simple(*, model: str, max_tokens: int, effort: str, prompt: str, stage_
         )
         _log_usage(message, stage_label)
         return message
-    message = _client().messages.create(
+    api_message = _client().messages.create(
         model=model,
         max_tokens=max_tokens,
         output_config={"effort": effort},
         messages=[{"role": "user", "content": prompt}],
     )
-    if message.stop_reason == "max_tokens":
+    if api_message.stop_reason == "max_tokens":
         log.warning("Claude reached the max_tokens limit (%s). Output may be truncated.", stage_label)
-    _log_usage(message, stage_label)
-    return message
+    _log_usage(api_message, stage_label)
+    return api_message
 
 
 def extract_text(message, stage_label: str) -> str:
